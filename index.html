@@ -1,0 +1,3503 @@
+<!DOCTYPE html>
+<html lang="en" crxlauncher=""><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Sanasa - Baddegama East</title>
+  <link rel="icon" type="image/x-icon" href="sanasa logo.jpg">
+  <!-- Google Fonts & Font Awesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- JSZip Library for backup functionality -->
+  <!-- Activity Log Modal -->
+<style>
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    /* Login Overlay */
+    #loginOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #1e2f47 0%, #111827 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(20px);
+    }
+    .login-box {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      padding: 40px;
+      border-radius: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+      width: 380px;
+      text-align: center;
+      color: white;
+    }
+    .login-box h2 { margin-bottom: 30px; font-weight: 700; letter-spacing: 1px; }
+    .login-box input {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 60px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
+      margin-bottom: 15px;
+      outline: none;
+      transition: all 0.3s;
+    }
+    .login-box input:focus { background: rgba(255, 255, 255, 0.1); border-color: #3b82f6; }
+    .login-box .login-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 60px;
+      border: none;
+      background: #3b82f6;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .login-box .login-btn:hover { background: #2563eb; transform: translateY(-2px); }
+    .login-error { color: #f87171; font-size: 0.85rem; margin-top: 10px; display: none; }
+  </style></head><body>
+<div id="loginOverlay">
+  <div class="login-box" id="loginBox">
+    <div style="margin-bottom:20px;"><img src="sanasa logo.jpg" style="height:60px; width:60px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.3);"></div>
+    <h2><i class="fas fa-shield-alt"></i> Login Required</h2>
+    <input type="text" id="loginUsername" placeholder="Username">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button class="login-btn" onclick="checkLogin()">Login to System</button>
+    <p id="loginError" class="login-error"></p>
+    <p id="loginAttemptsInfo" style="font-size: 0.8rem; margin-top: 15px; color: rgba(255,255,255,0.6);"></p>
+  </div>
+</div>
+<div id="activityLogModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width: 500px; max-width: 90vw; max-height: 85vh; display: flex; flex-direction: column;">
+    <h3><i class="fas fa-list-ul"></i> Activity Log</h3>
+    <p style="font-size:12px; color:#666;">Detailed history of all actions</p>
+    
+    <div style="margin: 15px 0; display: flex; gap: 8px;">
+      <input type="text" id="logSearch" placeholder="Search logs..." style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid #ddd;" oninput="renderActivityLog()">
+      <button class="header-btn" onclick="clearActivityLogWithConfirm()" style="background:#fee2e2; color:#b91c1c; border:none; padding:8px 12px; height:auto;">Clear</button>
+    </div>
+    
+    <div id="activityLogList" class="log-list" style="flex: 1; overflow-y: auto; max-height: calc(85vh - 160px);"></div>
+    
+    <button onclick="closeActivityLogModal()" class="primary-btn" style="margin-top:20px; width:100%;">Close</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="database.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    body {
+      background: linear-gradient(145deg, #eef2fa 0%, #dfe8f3 100%);
+      min-height: 100vh;
+      padding: 24px 20px;
+    }
+    .app-container {
+      max-width: 1480px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(12px);
+      border-radius: 2rem;
+      box-shadow: 0 20px 35px rgba(0, 0, 0, 0.08);
+      padding: 28px 30px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+      border-bottom: 2px solid rgba(255,255,255,0.7);
+      padding-bottom: 16px;
+    }
+    .title h1 {
+      font-weight: 700;
+      font-size: 1.9rem;
+      background: linear-gradient(135deg, #1A2A3F, #2C3E66);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .company-logo {
+      height: 48px;
+      width: auto;
+      object-fit: contain;
+    }
+    .badge-stats {
+      background: white;
+      border-radius: 60px;
+      padding: 8px 20px;
+      font-weight: 500;
+      color: #1f3a5f;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-stats .sync-icon {
+      font-size: 0.9rem;
+    }
+    .badge-stats.synced {
+      background: #e0f0e8;
+      color: #1f6e43;
+    }
+    .badge-stats.synced .sync-icon {
+      color: #1f6e43;
+    }
+    .badge-stats.restored {
+      background: #fff3e0;
+      color: #b35a00;
+    }
+    .badge-stats.restored .sync-icon {
+      color: #e65100;
+    }
+    .badge-stats.syncing {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+    .badge-stats.syncing .sync-icon {
+      color: #1976d2;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .badge-stats .backup-time {
+      font-size: 0.75rem;
+      font-weight: 400;
+      margin-left: 4px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-btn {
+      background: white;
+      border: 2px solid #2c3e66;
+      border-radius: 60px;
+      padding: 8px 16px;
+      font-weight: 500;
+      color: #2c3e66;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+    }
+    .header-btn:hover {
+      background: #2c3e66;
+      color: white;
+    }
+    .header-btn i {
+      font-size: 0.9rem;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 28px;
+    }
+    /* left panel */
+    .members-panel {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(4px);
+      border-radius: 1.5rem;
+      padding: 1.3rem;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    }
+    .panel-header {
+      font-weight: 700;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      color: #1e2f47;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .member-count {
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: #e8f0fe;
+      color: #4a6fa5;
+      padding: 2px 12px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .member-filter {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 60px;
+      border: none;
+      background: #f0f4fa;
+      margin-bottom: 20px;
+      outline: none;
+    }
+    .member-list {
+      max-height: 380px;
+      overflow-y: auto;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .member-card {
+      background: white;
+      border-radius: 1rem;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: 0.2s;
+      border: 1px solid #eef2f9;
+    }
+    .member-card.selected {
+      background: #2c3e66;
+      color: white;
+    }
+    .member-card.selected .member-info small,
+    .member-card.selected .member-info h4,
+    .member-card.selected .member-info .sinhala-name,
+    .member-card.selected .english-name,
+    .member-card.selected .sinhala-address,
+    .member-card.selected .contact-number,
+    .member-card.selected .national-id { color: white; }
+    .member-card.selected .contact-number i,
+    .member-card.selected .national-id i { color: rgba(255,255,255,0.85); }
+    .member-info h4 { font-weight: 600; font-size: 1rem; color: #1f2f47; margin-bottom: 2px; }
+    .member-info small { font-size: 0.7rem; color: #6b7a8c; }
+    .sinhala-name {
+      font-family: 'FMMalithi', sans-serif;
+      font-size: 1.05rem;
+      color: #1f2f47;
+      margin-bottom: 2px;
+    }
+    .english-name {
+      font-size: 0.75rem;
+      color: #5a6a7a;
+      font-style: italic;
+    }
+    .member-actions button {
+      background: none;
+      border: none;
+      margin-left: 6px;
+      cursor: pointer;
+      color: #7d8ea3;
+    }
+    .add-member-form .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .add-member-form input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 40px;
+      border: none;
+      background: #f4f7fd;
+    }
+    .input-label {
+      font-size: 0.7rem;
+      color: #5a6a7a;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .name-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .name-field-wrapper {
+      display: flex;
+      gap: 8px;
+    }
+    .name-field-wrapper input {
+      flex: 1;
+    }
+    .name-field-wrapper input.sinhala-input {
+      font-family: 'FMMalithi', sans-serif !important;
+    }
+    .sinhala-indicator {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #e8f0fe;
+      color: #4a6fa5;
+      padding: 0 10px;
+      border-radius: 40px;
+      font-size: 0.65rem;
+      white-space: nowrap;
+    }
+    .english-indicator {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0fdf4;
+      color: #2d6a4f;
+      padding: 0 10px;
+      border-radius: 40px;
+      font-size: 0.65rem;
+      white-space: nowrap;
+    }
+    .sinhala-address {
+      font-family: 'FMMalithi', sans-serif;
+      font-size: 0.75rem;
+      color: #5a6a7a;
+      margin-top: 2px;
+    }
+    .contact-number {
+      font-size: 0.75rem;
+      color: #5a6a7a;
+      margin-top: 2px;
+    }
+    .contact-number i {
+      color: #2c3e66;
+      margin-right: 4px;
+    }
+    .national-id {
+      font-size: 0.75rem;
+      color: #5a6a7a;
+      margin-top: 2px;
+    }
+    .national-id i {
+      color: #2c3e66;
+      margin-right: 4px;
+    }
+    .primary-btn {
+      background: #2c3e66;
+      color: white;
+      border: none;
+      border-radius: 40px;
+      padding: 8px 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    /* main area */
+    .main-area {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(4px);
+      border-radius: 1.5rem;
+      padding: 1.4rem 1.8rem;
+    }
+    .selected-hero {
+      background: #ffffffc9;
+      border-radius: 1.2rem;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .member-detail h2 { 
+      font-family: 'FMMalithi', sans-serif;
+      font-size: 1.5rem; 
+      font-weight: 700; 
+      color: #2c3e66;
+    }
+    .member-detail .sinhala-name-display {
+      font-size: 1rem;
+      color: #5a6a7a;
+      font-style: italic;
+      margin-top: 2px;
+    }
+    .member-detail .english-name-display {
+      font-size: 1rem;
+      color: #5a6a7a;
+      font-style: italic;
+      margin-top: 2px;
+    }
+    .member-profile-actions {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .member-profile-actions .primary-btn {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+    }
+    .attendance-filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filter-month {
+      background: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 40px;
+    }
+    .records-table {
+      background: white;
+      border-radius: 1rem;
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 14px 12px;
+      border-bottom: 1px solid #eef2fa;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .status-present { background: #e0f0e8; color: #1f6e43; }
+    .status-absent { background: #ffe2db; color: #b53b1e; }
+    .status-leave { background: #fff3e0; color: #b35a00; }
+    .letter-icon { color: #b87333; margin-left: 5px; }
+    .status-absent .letter-icon {
+      margin-left: 8px;
+      font-size: 0.9em;
+    }
+    .record-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .record-actions button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: 0.2s;
+    }
+    .edit-record { color: #3a6ea5; }
+    .edit-record:hover { background: #e8f0fe; color: #1a4a7a; }
+    .delete-record { color: #b91c1c; }
+    .delete-record:hover { background: #ffe2db; color: #7f1d1d; }
+    .mark-prev {
+      margin-top: 24px;
+      background: #eef3ff;
+      padding: 16px 20px;
+      border-radius: 1.2rem;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .prev-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .letter-checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 8px;
+      background: white;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+    }
+    .fab {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: #2c3e66;
+      color: white;
+      width: 64px;
+      height: 64px;
+      border-radius: 32px;
+      font-size: 1.4rem;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99;
+      border: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .fab:hover {
+      transform: scale(1.1);
+      box-shadow: 0 12px 25px rgba(0,0,0,0.3);
+    }
+    .fab:active {
+      transform: scale(0.95);
+    }
+    .fab-present {
+      background: #2c6e3e;
+      bottom: 110px;
+    }
+    .fab-absent {
+      background: #9e3c2c;
+      bottom: 30px;
+    }
+    .fab-leave {
+      background: #f57c00;
+      bottom: 190px;
+    }
+    .fab-disabled {
+      background: #999;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .fab-disabled:hover {
+      transform: none;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    .fab-tooltip {
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      margin-bottom: 8px;
+    }
+    .fab:hover .fab-tooltip {
+      opacity: 1;
+    }
+    .toast-msg {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1f2f47e6;
+      color: white;
+      padding: 8px 24px;
+      border-radius: 60px;
+      opacity: 0;
+      transition: 0.2s;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    /* Master Access Styles */
+    .master-only { display: none !important; }
+    body.master-mode-active .master-only { display: block !important; }
+    body.master-mode-active td.master-only, 
+    body.master-mode-active th.master-only { display: table-cell !important; }
+    body.master-mode-active div.master-only { display: block !important; }
+    body.master-mode-active .add-member-form.master-only { display: block !important; }
+    body.master-mode-active .member-profile-actions.master-only { display: flex !important; }
+    body.master-mode-active .mark-prev.master-only { display: flex !important; }
+    body.master-mode-active .fab.master-only { display: flex !important; }
+    body.master-mode-active .record-actions.master-only { display: flex !important; }
+
+    .badge-master {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-master-active {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 1.5rem;
+      padding: 24px;
+      width: 340px;
+      text-align: center;
+    }
+    .modal-content h3 {
+      color: #2c3e66;
+      margin-bottom: 10px;
+    }
+    .modal-content button {
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 30px;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .modal-content button:active {
+      transform: scale(0.98);
+    }
+    button { cursor: pointer; }
+    .empty-state { text-align: center; padding: 30px; color: #7a8aa5; }
+  
+@font-face {
+  font-family: 'FMMalithi';
+  src: url('FM-Malithi-x.ttf') format('truetype');
+}
+.fm-malithi{font-family:'FMMalithi',sans-serif !important;}
+.font-toggle{margin-top:8px;font-size:13px;}
+
+.mobile-menu-btn{display:none}
+@media (max-width:768px){
+body{padding:8px}
+.app-container{padding:12px;border-radius:16px}
+.dashboard{grid-template-columns:1fr!important}
+.mobile-menu-btn{display:flex;position:fixed;right:12px;bottom:12px;z-index:9999;padding:14px;border:none;border-radius:999px}
+.members-panel{position:fixed;left:-100%;top:0;height:100vh;width:85vw;max-width:340px;z-index:9998;overflow:auto;transition:.3s}
+.members-panel.mobile-open{left:0}
+.main-content,.details-panel,.content-panel{width:100%}
+input,select,button,textarea{font-size:16px!important;min-height:44px}
+.member-list{max-height:none}
+table{display:block;overflow-x:auto;white-space:nowrap}
+.header,.header-actions{flex-direction:column;align-items:stretch}
+}
+</style>
+
+<button class="mobile-menu-btn" id="mobileMenuBtn">☰ Members</button><div class="app-container">
+  <div class="header">
+    <div class="title"><h1><a href="#" id="logoBtn" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:12px;"><img id="appLogo" src="sanasa logo.jpg" style="height:40px; width:40px; border-radius:50%; object-fit:cover;"> Sanasa</a></h1><p>Baddegama East</p></div>
+    <div class="header-actions">
+      <div id="syncStatus" class="badge-stats synced">
+        <i class="fas fa-check-circle sync-icon"></i>
+        <span id="syncText">Real-time sync</span>
+      </div>
+      <div id="masterStatusBadge" class="badge-master">
+        <i class="fas fa-eye"></i> <span>Read-Only</span>
+      </div>
+      <button id="refreshDataBtn" class="header-btn master-only" title="Factory Reset from Original Database" style="padding:6px 12px; background:#fee2e2; border-color:#f87171; color:#b91c1c;">
+        <i class="fas fa-exclamation-triangle"></i> Reset Data
+      </button>
+    </div>
+  </div>
+  <div class="dashboard">
+    <!-- LEFT MEMBERS -->
+    <div class="members-panel">
+      <div class="panel-header"><i class="fas fa-users"></i> Members <span id="memberCount" class="member-count" style="background: rgb(224, 240, 232); color: rgb(31, 110, 67);">962</span></div>
+      <input type="text" id="memberSearchInput" class="member-filter" placeholder="Search name or code">
+      <div id="memberListContainer" class="member-list"></div>
+        <div class="add-member-form master-only">
+          <div class="input-group">
+            <input type="text" id="newMemberCode" placeholder="Code (ex: EM-101)">
+          </div>
+          <div class="name-fields">
+            <div class="name-field-wrapper">
+              <input type="text" id="newMemberName" class="sinhala-input" placeholder="isxy, ku">
+              <span class="sinhala-indicator" title="Sinhala Name">SIN</span>
+            </div>
+            <div class="name-field-wrapper">
+              <input type="text" id="newMemberEnglishName" placeholder="English Name">
+              <span class="english-indicator" title="English Name">EN</span>
+            </div>
+            <div class="name-field-wrapper">
+              <input type="text" id="newMemberAddress" class="sinhala-input" placeholder=",smskh">
+              <span class="sinhala-indicator" title="Address">SIN</span>
+            </div>
+            <div class="name-field-wrapper">
+              <input type="tel" id="newMemberContact" placeholder="Contact Number">
+              <span class="english-indicator" title="Contact Number">TEL</span>
+            </div>
+            <div class="name-field-wrapper">
+              <input type="text" id="newMemberNationalId" placeholder="National ID">
+              <span class="english-indicator" title="National ID">NIC</span>
+            </div>
+          </div>
+          <button id="addMemberBtn" class="primary-btn" style="width:100%"><i class="fas fa-plus"></i> Add member</button>
+        </div>
+    </div>
+
+    <!-- RIGHT MAIN -->
+    <div class="main-area">
+      <div id="selectedMemberPlaceholder" class="selected-hero">
+        <div class="member-detail">
+          <h2 id="selectedMemberName">fâúâ wEmd fifkúr;ak</h2>
+          <div class="sinhala-name-display"><span id="selectedMemberEnglishName">David Epa Seneviratne</span></div>
+          <div id="selectedMemberAddress" class="sinhala-address">oSmdks" jehsfyak</div>
+          <div id="selectedMemberContact" class="contact-number"><i class="fas fa-phone-alt"></i> <span id="selectedMemberContactValue">0773235286</span></div>
+          <div id="selectedMemberNationalId" class="national-id"><i class="fas fa-id-card"></i> <span id="selectedMemberNationalIdValue">360760049V</span></div>
+          <p>Code: <span id="selectedMemberCode">010100154</span></p>
+        </div>
+        <div class="member-profile-actions master-only">
+          <button id="editMemberBtn" class="primary-btn" style="background:#3a6ea5;"><i class="fas fa-edit"></i> Edit Profile</button>
+          <button id="deleteMemberBtn" class="primary-btn" style="background:#b91c1c;"><i class="fas fa-trash-alt"></i> Delete Member</button>
+        </div>
+      </div>
+
+      <!-- filter section -->
+      <div class="attendance-filters">
+        <label><i class="fas fa-calendar-week"></i> Filter by month:</label>
+        <input type="month" id="monthFilterInput" class="filter-month">
+        <button id="clearMonthFilter" class="primary-btn" style="background:#b7c4dd; color:#1e2f47;">Reset</button>
+      </div>
+
+      <!-- Attendance records table with edit/delete -->
+      <div id="attendanceRecordsArea" class="records-table"><div class="empty-state">No attendance records</div></div>
+
+      <!-- mark previous days: Present / Absent with optional letter for absent -->
+      <div id="markPrevSection" class="mark-prev master-only">
+        <i class="fas fa-calendar-day"></i> <strong>Mark previous day</strong>
+        <div class="prev-actions">
+          <input type="date" id="prevDatePicker" class="date-picker" style="padding:8px; border-radius:40px; border:none;">
+          <button id="markPrevPresentBtn" class="primary-btn btn-present" style="background:#2c6e3e;"><i class="fas fa-check"></i> Present</button>
+          <button id="markPrevAbsentBtn" class="primary-btn btn-absent" style="background:#9e3c2c;"><i class="fas fa-envelope"></i> Absent + Letter?</button>
+          <button id="markPrevLeaveBtn" class="primary-btn btn-leave" style="background:#f57c00;"><i class="fas fa-file-alt"></i> Leave</button>
+          <div id="absentLetterCheckboxContainer" class="letter-checkbox" style="display: none;">
+            <input type="checkbox" id="absentLetterFlag"> <label>Letter received</label>
+          <button id="confirmAbsentBtn" class="primary-btn" style="background: rgb(158, 60, 44); margin-left: 8px;">Confirm Absent</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<button id="fabLeave" class="fab fab-leave master-only" title="Mark Leave Today"><i class="fas fa-file-alt"></i><span class="fab-tooltip">Mark Leave</span></button>
+<button id="fabPresent" class="fab fab-present master-only" title="Mark Present Today" style=""><i class="fas fa-check"></i><span class="fab-tooltip">Mark Present</span></button>
+<button id="fabAbsent" class="fab fab-absent master-only" title="Mark Absent Today"><i class="fas fa-times"></i><span class="fab-tooltip">Mark Absent</span></button>
+<div id="toastMsg" class="toast-msg" style="opacity: 0;">Data refreshed! 962 members loaded from database.</div>
+
+<!-- Edit modal -->
+<div id="editModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <h3>Edit Attendance</h3>
+    <p id="editRecordDate" style="margin-bottom:15px; color:#666;">Date: 2026-05-24</p>
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+      <button id="editStatusPresent" class="primary-btn" style="flex: 1 1 0%; background: rgb(44, 110, 62); box-shadow: rgb(0, 0, 0) 0px 0px 0px 3px;"><i class="fas fa-check"></i> Present</button>
+      <button id="editStatusAbsent" class="primary-btn" style="flex: 1 1 0%; background: rgb(158, 60, 44); box-shadow: none;"><i class="fas fa-times"></i> Absent</button>
+      <button id="editStatusLeave" class="primary-btn" style="flex: 1 1 0%; background: #f57c00; box-shadow: none;"><i class="fas fa-file-alt"></i> Leave</button>
+    </div>
+    <div id="editLetterSection" style="display:none; background:#fff3cd; padding:12px; border-radius:10px; margin-bottom:15px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.95rem;">
+        <input type="checkbox" id="editLetterCheckbox"> 
+        <i class="fas fa-envelope" style="color:#b87333;"></i> Absence letter received
+      </label>
+    </div>
+    <button id="saveEditBtn" class="primary-btn" style="width:100%;"><i class="fas fa-save"></i> Save Changes</button>
+    <button id="closeEditBtn" style="margin-top:8px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<!-- Edit Member Modal -->
+<div id="editMemberModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width:380px;">
+    <h3><i class="fas fa-user-edit"></i> Edit Member</h3>
+    <p id="editMemberCodeDisplay" style="margin-bottom:15px; color:#666; font-size:0.9rem;"></p>
+    <div style="text-align:left;">
+      <label class="input-label">Code</label>
+      <input type="text" id="editMemberCode" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-bottom:12px;">
+      <label class="input-label">Sinhala Name (isxy, ku)</label>
+      <input type="text" id="editMemberSinhalaName" class="sinhala-input" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-bottom:12px; font-family:'FMMalithi', sans-serif;">
+      <label class="input-label">English Name</label>
+      <input type="text" id="editMemberEnglishName" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-bottom:12px;">
+      <label class="input-label">Address (,smskh)</label>
+      <input type="text" id="editMemberAddress" class="sinhala-input" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-bottom:12px; font-family:'FMMalithi', sans-serif;">
+      <label class="input-label">Contact Number</label>
+      <input type="tel" id="editMemberContact" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-bottom:12px;">
+      <label class="input-label">National ID</label>
+      <input type="text" id="editMemberNationalId" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-bottom:12px;">
+    </div>
+    <button id="saveMemberEditBtn" class="primary-btn" style="width:100%;"><i class="fas fa-save"></i> Save Changes</button>
+    <button id="closeMemberEditBtn" style="margin-top:8px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<!-- Logo Menu Popup -->
+<div id="logoMenuModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width:320px; max-height:80vh; overflow-y:auto;">
+    <h3><i class="fas fa-cog"></i> Menu</h3>
+    <div style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <!-- Add more buttons here as needed -->
+      <button id="masterAccessToggleBtn" class="primary-btn" style="background:#2c3e66;"><i class="fas fa-key"></i> <span id="masterToggleText">Enable Master Access</span></button>
+      <button id="backupRestoreBtn" class="primary-btn" style="background:#3a6ea5;"><i class="fas fa-database"></i> Backup &amp; Restore</button>
+      <button id="activityLogBtn" class="primary-btn" style="background:#475569;"><i class="fas fa-list-ul"></i> Activity Log</button>
+      <button id="recycleBinBtn" class="primary-btn" style="background:#7d6608;"><i class="fas fa-trash-restore"></i> Recycle Bin <span id="recycleBinCount" style="background: rgba(255, 255, 255, 0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; margin-left: 5px; display: none;">0</span></button>
+    </div>
+    <button id="closeLogoMenuBtn" style="margin-top:20px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;">Close</button>
+  </div>
+</div>
+
+<!-- Master Access Password Modal -->
+<div id="masterAccessAuthModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width:340px;">
+    <h3><i class="fas fa-shield-halved"></i> Master Access</h3>
+    <p style="color:#666; font-size:0.85rem; margin-bottom:15px;">Enter master key to unlock editing</p>
+    <input type="password" id="masterAccessPassword" placeholder="Enter master key..." style="width:100%; padding:12px; border-radius:10px; border:2px solid #ddd; font-size:1rem; text-align:center; letter-spacing:3px; margin-bottom:10px;">
+    <p id="masterAuthErrorMsg" style="color:#dc3545; font-size:0.85rem; display:none; text-align:center;"></p>
+    <button id="submitMasterAccessBtn" class="primary-btn" style="width:100%; margin-top:10px;"><i class="fas fa-lock-open"></i> Unlock System</button>
+    <button id="cancelMasterAccessBtn" style="margin-top:8px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<!-- Recycle Bin Modal -->
+<div id="recycleBinModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width:480px; max-height:85vh; overflow-y:auto;">
+    <h3><i class="fas fa-trash-restore"></i> Recycle Bin</h3>
+    <p style="color:#666; font-size:0.85rem; margin-bottom:12px;">Deleted items are stored here with timestamps. Use restore to recover them.</p>
+    
+    <!-- Search and Sort Controls -->
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <input type="text" id="recycleBinSearch" placeholder="Search deleted items..." style="flex:1; padding:8px 12px; border-radius:20px; border:1px solid #ddd; font-size:0.85rem;">
+      <select id="recycleBinSort" style="padding:8px 12px; border-radius:20px; border:1px solid #ddd; font-size:0.85rem;">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="name">By Name</option>
+        <option value="type">By Type</option>
+      </select>
+    </div>
+    
+    <div id="recycleBinList" style="max-height:400px; overflow-y:auto;"></div>
+    
+    <button id="cleanRecycleBinBtn" style="margin-top:10px; background:#dc3545; color:white; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer; font-weight:600;"><i class="fas fa-fire"></i> Clean Recycle Bin</button>
+    <button id="closeRecycleBinBtn" style="margin-top:10px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;">Close</button>
+  </div>
+</div>
+
+<!-- Clean Recycle Bin Password Modal -->
+<div id="cleanRecycleBinModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width:340px;">
+    <h3><i class="fas fa-lock"></i> Authorization Required</h3>
+    <p style="color:#666; font-size:0.85rem; margin-bottom:15px;">Enter password to clean recycle bin</p>
+    <input type="password" id="cleanRecycleBinPassword" placeholder="Enter password..." style="width:100%; padding:12px; border-radius:10px; border:2px solid #ddd; font-size:1rem; text-align:center; letter-spacing:3px; margin-bottom:10px;">
+    <p id="passwordErrorMsg" style="color:#dc3545; font-size:0.85rem; display:none; text-align:center;"></p>
+    <p id="passwordAttempts" style="color:#666; font-size:0.8rem; text-align:center;"></p>
+    <button id="submitCleanRecycleBinBtn" class="primary-btn" style="width:100%; margin-top:10px;"><i class="fas fa-key"></i> Submit</button>
+    <button id="cancelCleanRecycleBinBtn" style="margin-top:8px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;">Cancel</button>
+  </div>
+</div>
+<!-- Activity Log Clear Password Modal -->
+<div id="clearActivityLogAuthModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width:340px;">
+    <h3><i class="fas fa-lock"></i> Authorization Required</h3>
+    <p style="color:#666; font-size:0.85rem; margin-bottom:15px;">Enter password to clear activity log</p>
+    <input type="password" id="clearActivityLogPassword" placeholder="Enter password..." style="width:100%; padding:12px; border-radius:10px; border:2px solid #ddd; font-size:1rem; text-align:center; letter-spacing:3px; margin-bottom:10px;">
+    <p id="logAuthErrorMsg" style="color:#dc3545; font-size:0.85rem; display:none; text-align:center;"></p>
+    <p id="logAuthAttempts" style="color:#666; font-size:0.8rem; text-align:center;"></p>
+    <button id="submitClearActivityLogBtn" class="primary-btn" style="width:100%; margin-top:10px;"><i class="fas fa-key"></i> Submit</button>
+    <button id="cancelClearActivityLogBtn" style="margin-top:8px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<!-- Scary Terminal Overlay -->
+<div id="scaryTerminalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#0a0a0a; z-index:100000; overflow:hidden;">
+  <div id="scaryWarning" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center; z-index:100001;">
+    <h1 style="color:#ff0000; font-size:4rem; font-family:'Courier New', monospace; animation:scaryBlink 0.3s infinite; text-shadow:0 0 20px #ff0000, 0 0 40px #ff0000;">
+      ⚠️ WARNING ⚠️
+    </h1>
+    <p style="color:#ff4444; font-size:1.5rem; font-family:'Courier New', monospace; margin-top:20px;">
+      UNAUTHORIZED ACCESS DETECTED
+    </p>
+    <p style="color:#ff6666; font-size:1rem; font-family:'Courier New', monospace; margin-top:10px;">
+      SYSTEM BREACH INITIATED
+    </p>
+  </div>
+  <div id="scaryTerminal" style="position:absolute; top:60%; left:5%; width:90%; height:35%; background:#000; border:2px solid #333; border-radius:5px; overflow:hidden;">
+    <div style="background:#222; padding:8px 12px; border-bottom:1px solid #444; display:flex; align-items:center; gap:8px;">
+      <span style="width:12px; height:12px; background:#ff5f56; border-radius:50%;"></span>
+      <span style="width:12px; height:12px; background:#ffbd2e; border-radius:50%;"></span>
+      <span style="width:12px; height:12px; background:#27ca40; border-radius:50%;"></span>
+      <span style="color:#888; font-size:0.8rem; margin-left:10px;">root@intruder:~#</span>
+    </div>
+    <div id="terminalContent" style="padding:15px; color:#00ff00; font-family:'Courier New', monospace; font-size:0.9rem; height:calc(100% - 40px); overflow:hidden;">
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes scaryBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes matrixRain {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+.scary-matrix-line {
+  position: absolute;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  animation: matrixRain 2s linear infinite;
+  text-shadow: 0 0 5px #00ff00;
+}
+
+.mobile-menu-btn{display:none}
+@media (max-width:768px){
+body{padding:8px}
+.app-container{padding:12px;border-radius:16px}
+.dashboard{grid-template-columns:1fr!important}
+.mobile-menu-btn{display:flex;position:fixed;right:12px;bottom:12px;z-index:9999;padding:14px;border:none;border-radius:999px}
+.members-panel{position:fixed;left:-100%;top:0;height:100vh;width:85vw;max-width:340px;z-index:9998;overflow:auto;transition:.3s}
+.members-panel.mobile-open{left:0}
+.main-content,.details-panel,.content-panel{width:100%}
+input,select,button,textarea{font-size:16px!important;min-height:44px}
+.member-list{max-height:none}
+table{display:block;overflow-x:auto;white-space:nowrap}
+.header,.header-actions{flex-direction:column;align-items:stretch}
+}
+</style>
+
+<!-- Backup & Restore Sub Menu -->
+<div id="backupRestoreModal" class="modal" style="display: none;">
+  <div class="modal-content" style="width:320px;">
+    <h3><i class="fas fa-database"></i> Backup &amp; Restore</h3>
+    <div style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <button id="backupProjectBtn" class="primary-btn" style="background:#2c6e3e;"><i class="fas fa-download"></i> Backup Project</button>
+      <button id="restoreProjectBtn" class="primary-btn" style="background:#b87333;"><i class="fas fa-upload"></i> Restore Project</button>
+    </div>
+    <input type="file" id="restoreProjectInput" accept=".coop,.js" style="display:none;">
+    <button id="backToMenuBtn" style="margin-top:20px; background:#ccc; width:100%; border:none; padding:10px; border-radius:30px; cursor:pointer;"><i class="fas fa-arrow-left"></i> Back to Menu</button>
+  </div>
+</div>
+
+<script>
+  // ---------- DATA MODEL ----------
+  // Members now have both sinhalaName and englishName
+  let members = [];
+  let attendanceRecords = []; // { id, memberId, date, status, letterReceived }
+  let recycleBin = []; // { id, type, data, deletedAt, originalId }
+  let activityLog = []; // v1.0.7 - { id, timestamp, action, details, type }
+  let selectedMemberId = null;
+  let memberSearchKeyword = '';
+  let attendanceMonthFilter = '';
+
+  // Storage keys - only for attendance records since members are from database.js
+  const STORAGE_MEMBERS = 'attendance_members_v7'; // Keep for migration
+  const STORAGE_RECORDS = 'attendance_records_v7';
+  const STORAGE_RECYCLE_BIN = 'sanasa_recycle_bin_v1';
+  const STORAGE_ACTIVITY_LOG = 'sanasa_activity_log_v1';
+  
+  // Security Globals
+  const MAX_ATTEMPTS = 3;
+  const CORRECT_PASSWORD = 'omega13';
+  let cleanRecycleBinAttempts = 0;
+  let clearActivityLogAttempts = 0;
+  let loginAttempts = 0;
+  
+  // Login Credentials
+  const LOGIN_USERNAME = 'sanasa';
+  const LOGIN_PASSWORD = '1930';
+  
+  // Master Access State
+  let isMasterAccess = false;
+  const MASTER_KEY = 'SanasaEast';
+  let masterAuthAttempts = 0;
+
+  function saveToLocal() {
+    // Save members to persist edits
+    localStorage.setItem(STORAGE_MEMBERS, JSON.stringify(members));
+    // Save attendance records
+    localStorage.setItem(STORAGE_RECORDS, JSON.stringify(attendanceRecords));
+    // Save recycle bin
+    localStorage.setItem(STORAGE_RECYCLE_BIN, JSON.stringify(recycleBin));
+    // Save activity log
+    localStorage.setItem(STORAGE_ACTIVITY_LOG, JSON.stringify(activityLog));
+    // Update recycle bin count badge
+    updateRecycleBinCount();
+  }
+
+  function logActivity(action, details, type = 'system') {
+    const entry = {
+      id: Date.now() + Math.random(),
+      timestamp: new Date().toISOString(),
+      action: action,
+      details: details,
+      type: type // 'attendance', 'member', 'system', 'delete'
+    };
+    activityLog.unshift(entry); // Add to beginning
+    // Keep max 1000 logs for performance
+    if (activityLog.length > 1000) activityLog.pop();
+    saveToLocal();
+  }
+
+  function loadInitialData() {
+    // Check if there's local data and show "Sync in progress" while loading
+    const storedMembers = localStorage.getItem(STORAGE_MEMBERS);
+    const storedRecords = localStorage.getItem(STORAGE_RECORDS);
+    const storedRecycleBin = localStorage.getItem(STORAGE_RECYCLE_BIN);
+    const storedActivityLog = localStorage.getItem(STORAGE_ACTIVITY_LOG);
+    
+    // If there's any local data, show sync in progress
+    if (storedMembers || storedRecords || storedRecycleBin || storedActivityLog) {
+      showSyncInProgress();
+    }
+    
+    // Load members - Prioritize stored members if they exist
+    try {
+      if (storedMembers) {
+        members = JSON.parse(storedMembers);
+        console.log(`Loaded ${members.length} members from localStorage`);
+      } else if (typeof ALL_RESIDENTS !== 'undefined' && ALL_RESIDENTS && ALL_RESIDENTS.length > 0) {
+        // Map database.js fields to member format
+        members = ALL_RESIDENTS.map((resident, index) => ({
+          id: resident.id || (index + 1), // Preserve original ID if available
+          code: (resident.code || '').toString(),
+          sinhalaName: (resident.sinhalaNameFmmalithi || '').toString(),
+          englishName: (resident.englishName || '').toString(),
+          address: (resident.sinhalaAddressFmmalithi || '').toString(),
+          contact: (resident.contactNumber || '').toString(),
+          nationalId: (resident.nationalID || '').toString()
+        }));
+        console.log(`Loaded ${members.length} members from database.js`);
+      } else {
+        members = [];
+        console.warn('No member data sources available');
+      }
+    } catch (error) {
+      console.error('Error loading members:', error);
+      members = [];
+    }
+    
+    // Load attendance records - prioritize localStorage, then database.js constant
+    if (storedRecords) {
+      attendanceRecords = JSON.parse(storedRecords);
+    } else if (typeof ATTENDANCE_RECORDS !== 'undefined' && Array.isArray(ATTENDANCE_RECORDS)) {
+      // Build a map of codes to current IDs for reconciliation
+      const codeToIdMap = {};
+      members.forEach(m => {
+        codeToIdMap[m.code.toLowerCase()] = m.id;
+      });
+
+      attendanceRecords = ATTENDANCE_RECORDS.map((r, idx) => {
+        let finalMemberId = r.memberId;
+        // If memberId link seems broken (e.g. from static file), try to reconcile by code
+        if (r.memberCode) {
+          const mappedId = codeToIdMap[r.memberCode.toLowerCase()];
+          if (mappedId) finalMemberId = mappedId;
+        }
+        return {
+          id: r.id || (Date.now() + idx),
+          memberId: finalMemberId,
+          date: r.date,
+          status: r.status,
+          letterReceived: r.letterReceived || false
+        };
+      });
+      console.log(`Restored ${attendanceRecords.length} records from database.js fallback`);
+    } else {
+      attendanceRecords = [];
+    }
+    
+    // Load recycle bin - prioritize localStorage, then database.js constant
+    if (storedRecycleBin) {
+      recycleBin = JSON.parse(storedRecycleBin);
+    } else if (typeof RECYCLE_BIN !== 'undefined' && Array.isArray(RECYCLE_BIN)) {
+      recycleBin = RECYCLE_BIN;
+      console.log(`Restored ${recycleBin.length} items from recycle bin fallback`);
+    } else {
+      recycleBin = [];
+    }
+    updateRecycleBinCount();
+
+    // Load activity log - prioritize localStorage, then database.js constant
+    if (storedActivityLog) {
+      activityLog = JSON.parse(storedActivityLog);
+    } else if (typeof ACTIVITY_LOG !== 'undefined' && Array.isArray(ACTIVITY_LOG)) {
+      activityLog = ACTIVITY_LOG;
+      console.log(`Restored ${activityLog.length} logs from activity log fallback`);
+    } else {
+      activityLog = [];
+      logActivity("System Initialized", "Activity logging started");
+    }
+    
+    // If we were using local storage OR database fallback constants, update UI status
+    const dataLoaded = storedMembers || storedRecords || (typeof ATTENDANCE_RECORDS !== 'undefined');
+    if (dataLoaded) {
+      setTimeout(() => {
+        // If we have backup info in database.js, use that timestamp
+        if (typeof BACKUP_INFO !== 'undefined' && BACKUP_INFO.backupTimestamp) {
+          showRestoredStatus(BACKUP_INFO.backupTimestamp);
+        } else if (lastBackupTimestamp) {
+          showRestoredStatus(lastBackupTimestamp);
+        } else {
+          showSyncedStatus();
+        }
+      }, 500);
+    }
+  }
+
+  // ========== MASTER ACCESS FUNCTIONS ==========
+  function updateMasterAccessUI() {
+    // Toggle body class for simple CSS-driven visibility
+    document.body.classList.toggle('master-mode-active', isMasterAccess);
+    
+    // Update badge
+    const badge = document.getElementById('masterStatusBadge');
+    if (badge) {
+      badge.innerHTML = isMasterAccess ? '<i class="fas fa-unlock"></i> <span>Master Access</span>' : '<i class="fas fa-eye"></i> <span>Read-Only</span>';
+      badge.className = isMasterAccess ? 'badge-master badge-master-active' : 'badge-master';
+    }
+    
+    // Update toggle button text in menu
+    const toggleBtnText = document.getElementById('masterToggleText');
+    if (toggleBtnText) {
+      toggleBtnText.textContent = isMasterAccess ? 'Disable Master Access' : 'Enable Master Access';
+    }
+    
+    // Re-render attendance list since it has dynamic master-only columns
+    if (selectedMemberId) renderAttendanceRecords();
+  }
+
+  function openMasterAccessModal() {
+    if (isMasterAccess) {
+      isMasterAccess = false;
+      updateMasterAccessUI();
+      showToast('Master Access Disabled (Read-Only)', 2000);
+      document.getElementById('logoMenuModal').style.display = 'none';
+    } else {
+      document.getElementById('masterAccessPassword').value = '';
+      document.getElementById('masterAuthErrorMsg').style.display = 'none';
+      document.getElementById('masterAccessAuthModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('masterAccessPassword').focus(), 100);
+    }
+  }
+
+  function checkMasterKey() {
+    const pwd = document.getElementById('masterAccessPassword').value;
+    const errorMsg = document.getElementById('masterAuthErrorMsg');
+    
+    if (pwd === MASTER_KEY) {
+      isMasterAccess = true;
+      masterAuthAttempts = 0;
+      updateMasterAccessUI();
+      document.getElementById('masterAccessAuthModal').style.display = 'none';
+      document.getElementById('logoMenuModal').style.display = 'none';
+      showToast('Master Access Unlocked! (Editing Enabled)', 3000);
+      logActivity("Master Access", "System unlocked with master key", 'system');
+    } else {
+      masterAuthAttempts++;
+      if (masterAuthAttempts >= MAX_ATTEMPTS) {
+        document.getElementById('masterAccessAuthModal').style.display = 'none';
+        triggerScaryTerminal();
+      } else {
+        errorMsg.innerText = `Invalid key! (${MAX_ATTEMPTS - masterAuthAttempts} attempts left)`;
+        errorMsg.style.display = 'block';
+        document.getElementById('masterAccessPassword').style.animation = 'shake 0.4s';
+        setTimeout(() => { document.getElementById('masterAccessPassword').style.animation = ''; }, 400);
+      }
+    }
+  }
+  
+  // ========== RECYCLE BIN FUNCTIONS ==========
+  function updateRecycleBinCount() {
+    const countBadge = document.getElementById('recycleBinCount');
+    if (countBadge) {
+      countBadge.textContent = recycleBin.length;
+      countBadge.style.display = recycleBin.length > 0 ? 'inline' : 'none';
+    }
+  }
+  
+  function addToRecycleBin(type, data) {
+    const recycleItem = {
+      id: Date.now() + Math.floor(Math.random() * 10000),
+      type: type, // 'member' or 'attendance'
+      data: JSON.parse(JSON.stringify(data)),
+      deletedAt: new Date().toISOString(),
+      originalId: data.id
+    };
+    recycleBin.push(recycleItem);
+    saveToLocal();
+    return recycleItem.id;
+  }
+  
+  function restoreFromRecycleBin(recycleItemId) {
+    const itemIndex = recycleBin.findIndex(item => item.id == recycleItemId);
+    if (itemIndex === -1) {
+      showToast('Item not found in recycle bin', 1500);
+      return false;
+    }
+    
+    const item = recycleBin[itemIndex];
+    
+    if (item.type === 'member') {
+      // Restore member - check if code already exists
+      const codeExists = members.some(m => m.code.toLowerCase() === item.data.code.toLowerCase());
+      if (codeExists) {
+        showToast('Cannot restore: Member code already exists', 2000);
+        return false;
+      }
+      
+      // Restore member with original ID if possible to maintain link with attendance records
+      const originalId = item.data.id;
+      const idExists = members.some(m => m.id == originalId);
+      const newId = idExists ? Date.now() + Math.floor(Math.random() * 10000) : originalId;
+      
+      const restoredMember = {
+        ...item.data,
+        id: newId
+      };
+      members.push(restoredMember);
+      
+      // Also restore all attendance records for this member
+      if (item.data.attendanceRecords && item.data.attendanceRecords.length > 0) {
+        item.data.attendanceRecords.forEach(attRecord => {
+          const restoredAtt = {
+            ...attRecord,
+            id: Date.now() + Math.floor(Math.random() * 10000),
+            memberId: newId
+          };
+          attendanceRecords.push(restoredAtt);
+        });
+      }
+      
+      showToast(`Member "${item.data.sinhalaName}" restored!`, 2000);
+    } else if (item.type === 'attendance') {
+      // Check if the associated member still exists in the active members list
+      const memberExists = members.some(m => m.id == item.data.memberId);
+      if (!memberExists) {
+        // If not in members, check if they are in the recycle bin
+        const memberInRecycleBin = recycleBin.some(ri => ri.type === 'member' && ri.data.id == item.data.memberId);
+        if (memberInRecycleBin) {
+          showToast('Please restore the member first!', 3000);
+        } else {
+          showToast('Cannot restore: Associated member no longer exists', 3000);
+        }
+        return false;
+      }
+
+      // Restore attendance record - check if already exists
+      const exists = attendanceRecords.some(r => 
+        r.memberId == item.data.memberId && r.date === item.data.date
+      );
+      if (exists) {
+        showToast('Cannot restore: Attendance already marked for this date', 2000);
+        return false;
+      }
+      
+      const restoredRecord = {
+        ...item.data,
+        id: Date.now() + Math.floor(Math.random() * 10000)
+      };
+      attendanceRecords.push(restoredRecord);
+      showToast('Attendance record restored!', 2000);
+    }
+    
+    // Remove from recycle bin
+    recycleBin.splice(itemIndex, 1);
+    saveToLocal();
+    renderRecycleBinList();
+    
+    // Refresh UI
+    renderMemberList();
+    renderAttendanceRecords();
+    updateFabStates();
+    
+    logActivity("Restored from Recycle Bin", `${item.type === 'member' ? item.data.code : getMemberNameForRecycle(item.data.memberId)} restored`, 'system');
+    return true;
+  }
+  
+  function getMemberNameForRecycle(memberId) {
+    const activeMember = members.find(m => m.id == memberId);
+    if (activeMember) return activeMember.sinhalaName || activeMember.englishName || '';
+    
+    const recycleMember = recycleBin.find(ri => ri.type === 'member' && ri.data.id == memberId);
+    if (recycleMember) return recycleMember.data.sinhalaName || recycleMember.data.englishName || '';
+    
+    return 'Unknown Member';
+  }
+
+  function renderRecycleBinList() {
+    const container = document.getElementById('recycleBinList');
+    const searchTerm = document.getElementById('recycleBinSearch').value.toLowerCase().trim();
+    const sortBy = document.getElementById('recycleBinSort').value;
+    
+    // Filter items
+    let filteredItems = recycleBin.filter(item => {
+      if (!searchTerm) return true;
+      
+      if (item.type === 'member') {
+        const data = item.data;
+        return (
+          (data.sinhalaName || '').toLowerCase().includes(searchTerm) ||
+          (data.englishName || '').toLowerCase().includes(searchTerm) ||
+          (data.code || '').toLowerCase().includes(searchTerm)
+        );
+      } else if (item.type === 'attendance') {
+        const memberName = getMemberNameForRecycle(item.data.memberId);
+        return (
+          (item.data.date || '').includes(searchTerm) ||
+          memberName.toLowerCase().includes(searchTerm) ||
+          (item.data.status || '').toLowerCase().includes(searchTerm)
+        );
+      }
+      return false;
+    });
+    
+    // Sort items
+    filteredItems.sort((a, b) => {
+      if (sortBy === 'newest') {
+        return new Date(b.deletedAt) - new Date(a.deletedAt);
+      } else if (sortBy === 'oldest') {
+        return new Date(a.deletedAt) - new Date(b.deletedAt);
+      } else if (sortBy === 'name') {
+        const nameA = a.type === 'member' ? (a.data.sinhalaName || '') : getMemberNameForRecycle(a.data.memberId);
+        const nameB = b.type === 'member' ? (b.data.sinhalaName || '') : getMemberNameForRecycle(b.data.memberId);
+        return nameA.localeCompare(nameB);
+      } else if (sortBy === 'type') {
+        return a.type.localeCompare(b.type);
+      }
+      return 0;
+    });
+    
+    if (filteredItems.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:40px 20px; color:#999;">
+          <i class="fas fa-trash" style="font-size:3rem; margin-bottom:15px; opacity:0.3;"></i>
+          <p>${recycleBin.length === 0 ? 'Recycle bin is empty' : 'No items match your search'}</p>
+        </div>
+      `;
+      return;
+    }
+    
+    container.innerHTML = filteredItems.map(item => {
+      const deletedDate = new Date(item.deletedAt);
+      const formattedDate = deletedDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      if (item.type === 'member') {
+        const data = item.data;
+        const attendanceCount = data.attendanceRecords ? data.attendanceRecords.length : 0;
+        return `
+          <div style="background:#fff3cd; border-radius:12px; padding:14px; margin-bottom:10px; border-left:4px solid #ffc107;">
+            <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
+              <div>
+                <span style="background:#ffc107; color:#000; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:600;">MEMBER</span>
+                <h4 class="fm-malithi" style="margin:6px 0 2px 0; color:#2c3e66;">${escapeHtml(data.sinhalaName || '')}</h4>
+                <p style="margin:0; font-size:0.8rem; color:#666;">${escapeHtml(data.code || '')} - ${escapeHtml(data.englishName || '')}</p>
+                <p style="margin:2px 0 0 0; font-size:0.75rem; color:#888;">Deleted: ${formattedDate}</p>
+                <p style="margin:2px 0 0 0; font-size:0.75rem; color:#888;">With ${attendanceCount} attendance record(s)</p>
+              </div>
+              <button onclick="restoreFromRecycleBin(${item.id})" style="background:#2c6e3e; color:white; border:none; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:0.8rem; white-space:nowrap;">
+                <i class="fas fa-undo"></i> Restore
+              </button>
+            </div>
+          </div>
+        `;
+      } else if (item.type === 'attendance') {
+        const memberName = getMemberNameForRecycle(item.data.memberId);
+        const statusText = item.data.status === 'present' ? 'Present' : 
+                         item.data.status === 'leave' ? 'Leave' : 'Absent';
+        const statusColor = item.data.status === 'present' ? '#2c6e3e' : 
+                          item.data.status === 'leave' ? '#f57c00' : '#9e3c2c';
+        
+        return `
+          <div style="background:#e8f0e8; border-radius:12px; padding:14px; margin-bottom:10px; border-left:4px solid #4a9950;">
+            <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
+              <div>
+                <span style="background:#4a9950; color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:600;">ATTENDANCE</span>
+                <h4 class="fm-malithi" style="margin:6px 0 2px 0; color:#2c3e66;">${escapeHtml(memberName)}</h4>
+                <p style="margin:0; font-size:0.8rem; color:#666;">Date: ${item.data.date} - <span style="color:${statusColor}; font-weight:600;">${statusText}</span></p>
+                <p style="margin:2px 0 0 0; font-size:0.75rem; color:#888;">Deleted: ${formattedDate}</p>
+              </div>
+              <button onclick="restoreFromRecycleBin(${item.id})" style="background:#2c6e3e; color:white; border:none; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:0.8rem; white-space:nowrap;">
+                <i class="fas fa-undo"></i> Restore
+              </button>
+            </div>
+          </div>
+        `;
+      }
+    }).join('');
+  }
+  
+  function openRecycleBinModal() {
+    document.getElementById('recycleBinSearch').value = '';
+    document.getElementById('recycleBinSort').value = 'newest';
+    renderRecycleBinList();
+    document.getElementById('recycleBinModal').style.display = 'flex';
+  }
+  // ========== END RECYCLE BIN FUNCTIONS ==========
+
+  // ========== ACTIVITY LOG FUNCTIONS ==========
+  function renderActivityLog() {
+    const container = document.getElementById('activityLogList');
+    const searchTerm = document.getElementById('logSearch').value.toLowerCase().trim();
+    
+    let filteredLogs = activityLog.filter(log => {
+      if (!searchTerm) return true;
+      return log.action.toLowerCase().includes(searchTerm) || 
+             log.details.toLowerCase().includes(searchTerm);
+    });
+
+    if (filteredLogs.length === 0) {
+      container.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">No activity logs found.</div>';
+      return;
+    }
+
+    container.innerHTML = filteredLogs.map(log => {
+      const typeClass = `type-${log.type || 'system'}`;
+      const timeStr = new Date(log.timestamp).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      });
+      
+      // Format details to apply Sinhala font to names
+      const formattedDetails = escapeHtml(log.details)
+        .replace(/(Name:\s*)([^,<]+)/g, '$1<span class="fm-malithi">$2</span>')
+        .replace(/(Restored\s+)([^,<\s]+)(?=\s+from)/g, '$1<span class="fm-malithi">$2</span>');
+
+      return `
+        <div class="log-item">
+          <div class="log-header">
+            <span class="log-type ${typeClass}">${log.type || 'SYSTEM'}</span>
+            <span class="log-timestamp">${timeStr}</span>
+          </div>
+          <div class="log-details">
+            <strong>${escapeHtml(log.action)}</strong>: ${formattedDetails}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openActivityLogModal() {
+    document.getElementById('logoMenuModal').style.display = 'none';
+    document.getElementById('logSearch').value = '';
+    renderActivityLog();
+    document.getElementById('activityLogModal').style.display = 'flex';
+  }
+
+  function closeActivityLogModal() {
+    document.getElementById('activityLogModal').style.display = 'none';
+  }
+
+
+  function updateLogAuthAttemptsDisplay() {
+    const attemptsDisplay = document.getElementById('logAuthAttempts');
+    const remaining = MAX_ATTEMPTS - clearActivityLogAttempts;
+    if (remaining < MAX_ATTEMPTS) {
+      attemptsDisplay.textContent = `Attempts remaining: ${remaining}`;
+      attemptsDisplay.style.color = remaining <= 1 ? '#dc3545' : '#666';
+    } else {
+      attemptsDisplay.textContent = '';
+    }
+  }
+
+  function checkClearActivityLogPassword() {
+    const passwordInput = document.getElementById('clearActivityLogPassword');
+    const errorMsg = document.getElementById('logAuthErrorMsg');
+    const enteredPassword = passwordInput.value.trim();
+    
+    if (enteredPassword === CORRECT_PASSWORD) {
+      document.getElementById('clearActivityLogAuthModal').style.display = 'none';
+      if (confirm("LITERALLY EVERYTHING in the history will be deleted. Are you sure?")) {
+        activityLog = [];
+        logActivity("Log Cleared", "The entire activity history was wiped");
+        renderActivityLog();
+        showToast("Log cleared successfully");
+        clearActivityLogAttempts = 0;
+      }
+    } else {
+      clearActivityLogAttempts++;
+      errorMsg.style.display = 'block';
+      errorMsg.textContent = 'Incorrect password!';
+      passwordInput.value = '';
+      passwordInput.style.borderColor = '#dc3545';
+      
+      updateLogAuthAttemptsDisplay();
+      
+      if (clearActivityLogAttempts >= MAX_ATTEMPTS) {
+        document.getElementById('clearActivityLogAuthModal').style.display = 'none';
+        triggerScaryTerminal();
+      } else {
+        const modal = document.querySelector('#clearActivityLogAuthModal .modal-content');
+        modal.style.animation = 'none';
+        setTimeout(() => {
+          modal.style.animation = 'shake 0.5s';
+        }, 10);
+      }
+    }
+  }
+
+  function clearActivityLogWithConfirm() {
+    document.getElementById('clearActivityLogPassword').value = '';
+    document.getElementById('logAuthErrorMsg').style.display = 'none';
+    updateLogAuthAttemptsDisplay();
+    document.getElementById('clearActivityLogAuthModal').style.display = 'flex';
+  }
+  // ========== END ACTIVITY LOG FUNCTIONS ==========
+  function generateDatabaseJs() {
+    // Generate database.js content with all members and attendance records
+    const residents = members.map(m => ({
+      code: m.code,
+      sinhalaNameFmmalithi: m.sinhalaName,
+      sinhalaNameUnicode: '', // Not used in this app
+      englishName: m.englishName,
+      nationalID: m.nationalId,
+      sinhalaAddressFmmalithi: m.address,
+      contactNumber: m.contact
+    }));
+
+    // Generate attendance records as a separate export
+    const attendanceExport = attendanceRecords.map(r => ({
+      ...r,
+      memberCode: getMemberById(r.memberId)?.code || ''
+    }));
+
+    const dbContent = `// database.js
+// Auto-generated by Sanasa Attendance System
+// Date: ${new Date().toISOString()}
+// Members: ${members.length}
+// Attendance Records: ${attendanceRecords.length}
+// Activity Logs: ${activityLog.length}
+
+const ALL_RESIDENTS = ${JSON.stringify(residents, null, 2)};
+const ACTIVITY_LOG = ${JSON.stringify(activityLog, null, 2)};
+
+// Attendance Records Export (for reference)
+// const ATTENDANCE_RECORDS = ${JSON.stringify(attendanceExport, null, 2)};
+
+// Utility functions for easy access
+function getAllResidents() {
+  return ALL_RESIDENTS;
+}
+
+function findResidentByCode(code) {
+  return ALL_RESIDENTS.find(resident => resident.code === code) || null;
+}
+
+function findResidentsByName(name) {
+  const searchTerm = name.toLowerCase();
+  return ALL_RESIDENTS.filter(resident => 
+    resident.englishName.toLowerCase().includes(searchTerm) ||
+    resident.sinhalaNameUnicode.includes(searchTerm) ||
+    resident.sinhalaNameFmmalithi.includes(searchTerm)
+  );
+}
+
+function findResidentsByNationalID(nationalID) {
+  return ALL_RESIDENTS.filter(resident => resident.nationalID === nationalID);
+}
+
+// For browser environments
+if (typeof window !== 'undefined') {
+  window.residentDatabase = {
+    getAll: getAllResidents,
+    findByCode: findResidentByCode,
+    findByName: findResidentsByName,
+    findByNationalID: findResidentsByNationalID,
+    allRecords: ALL_RESIDENTS
+  };
+}
+
+// For Node.js / ES modules
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ALL_RESIDENTS,
+    getAllResidents,
+    findResidentByCode,
+    findResidentsByName,
+    findResidentsByNationalID
+  };
+}
+`;
+
+    return dbContent;
+  }
+
+  function downloadDatabase() {
+    const content = generateDatabaseJs();
+    const blob = new Blob([content], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const timestamp = new Date().toISOString().slice(0,10).replace(/-/g, '');
+    a.download = `database_${timestamp}.js`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Database downloaded (${members.length} members)`, 2000);
+  }
+
+  function uploadDatabase(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const content = e.target.result;
+        
+        // Extract ALL_RESIDENTS array from the file
+        const match = content.match(/const\s+ALL_RESIDENTS\s*=\s*(\[[\s\S]*?\]);/);
+        if (!match) {
+          // Try alternative format
+          const altMatch = content.match(/ALL_RESIDENTS\s*=\s*(\[[\s\S]*?\]);/);
+          if (!altMatch) {
+            throw new Error('Invalid database format');
+          }
+        }
+        
+        const arrayStr = match ? match[1] : altMatch[1];
+        const importedResidents = eval(arrayStr);
+        
+        if (!Array.isArray(importedResidents) || importedResidents.length === 0) {
+          throw new Error('No residents found in file');
+        }
+
+        // Ask user whether to merge or replace
+        const action = confirm(
+          `Found ${importedResidents.length} members in file.\n\n` +
+          `OK = Merge with existing (add new members)\n` +
+          `Cancel = Replace all (use uploaded file only)`
+        );
+
+        if (action) {
+          // Merge: Add members that don't already exist
+          let addedCount = 0;
+          const existingCodes = new Set(members.map(m => m.code.toLowerCase()));
+          importedResidents.forEach(resident => {
+            if (!existingCodes.has((resident.code || '').toString().toLowerCase())) {
+              const newId = Date.now() + Math.floor(Math.random() * 10000) + members.length;
+              members.push({
+                id: newId,
+                code: (resident.code || '').toString(),
+                sinhalaName: (resident.sinhalaNameFmmalithi || '').toString(),
+                englishName: (resident.englishName || '').toString(),
+                address: (resident.sinhalaAddressFmmalithi || '').toString(),
+                contact: (resident.contactNumber || '').toString(),
+                nationalId: (resident.nationalID || '').toString()
+              });
+              addedCount++;
+            }
+          });
+          showToast(`Merged: ${addedCount} new members added`, 2500);
+        } else {
+          // Replace: Use uploaded file completely
+          members = importedResidents.map((resident, index) => ({
+            id: index + 1,
+            code: (resident.code || '').toString(),
+            sinhalaName: (resident.sinhalaNameFmmalithi || '').toString(),
+            englishName: (resident.englishName || '').toString(),
+            address: (resident.sinhalaAddressFmmalithi || '').toString(),
+            contact: (resident.contactNumber || '').toString(),
+            nationalId: (resident.nationalID || '').toString()
+          }));
+          showToast(`Replaced with ${members.length} members`, 2000);
+        }
+
+        // Update UI
+        selectedMemberId = members.length > 0 ? members[0].id : null;
+        renderMemberList();
+        renderSelectedMemberArea();
+        renderAttendanceRecords();
+        updateFabStates();
+
+      } catch (error) {
+        console.error('Upload error:', error);
+        showToast('Error reading file: Invalid format', 3000);
+      }
+    };
+    reader.readAsText(file);
+  }
+  // ========== END DATABASE FUNCTIONS ==========
+
+  function getMemberById(id) { return members.find(m => m.id === id); }
+
+  // Add/Update record with optional letter
+  function addOrUpdateAttendance(memberId, date, status, letterReceived = false) {
+    if (!memberId) return false;
+    if (date > new Date().toISOString().slice(0,10)) { showToast("Cannot mark future dates", 1500); return false; }
+    const existingIndex = attendanceRecords.findIndex(r => r.memberId == memberId && r.date === date);
+    if (existingIndex !== -1) {
+      // update existing record
+      attendanceRecords[existingIndex].status = status;
+      attendanceRecords[existingIndex].letterReceived = (status === 'absent' ? letterReceived : false);
+    } else {
+      // create new - use integer ID for reliable comparison
+      const newRecord = {
+        id: Math.floor(Date.now() + Math.random() * 10000),
+        memberId,
+        date,
+        status,
+        letterReceived: (status === 'absent' ? letterReceived : false)
+      };
+      attendanceRecords.push(newRecord);
+    }
+    saveToLocal();
+    if (selectedMemberId == memberId) renderAttendanceRecords();
+    renderMemberList();
+    const m = getMemberById(memberId);
+    let displayStatus = status === 'present' ? 'Present' : (status === 'leave' ? 'Leave' : 'Absent');
+    logActivity("Attendance Marked", `${m ? m.code : 'Unknown'} - ${date} - ${displayStatus}`, 'attendance');
+    showToast(`${displayStatus} marked on ${date}`, 1600);
+    return true;
+  }
+
+  function deleteAttendanceRecord(recordId, memberId) {
+    // Find the record first to get the date for confirmation
+    const record = attendanceRecords.find(r => r.id == recordId);
+    const recordDate = record ? record.date : 'Unknown';
+    
+    if (confirm("Delete this attendance record?\n\nDate: " + recordDate + "\n\nThis will be moved to Recycle Bin and can be restored later.")) {
+      // Add to recycle bin before deleting
+      if (record) {
+        addToRecycleBin('attendance', record);
+      }
+      
+      // Use loose equality (==) for comparison since IDs might be strings or numbers
+      attendanceRecords = attendanceRecords.filter(r => r.id != recordId);
+      saveToLocal();
+      if (selectedMemberId == memberId) renderAttendanceRecords();
+      renderMemberList();
+      logActivity("Attendance Deleted", `Record for ${recordDate} moved to Recycle Bin`, 'delete');
+      showToast("Record moved to Recycle Bin", 1500);
+    }
+  }
+
+  // edit modal logic
+  let currentEditRecord = null;
+  let pendingStatusChange = null; // Track pending status change
+  
+  function openEditModal(record) {
+    currentEditRecord = record;
+    pendingStatusChange = null; // Reset pending change
+    document.getElementById('editRecordDate').innerText = `Date: ${record.date}`;
+    
+    // Update status button styles
+    const presentBtn = document.getElementById('editStatusPresent');
+    const absentBtn = document.getElementById('editStatusAbsent');
+    
+    if (record.status === 'present') {
+      presentBtn.style.boxShadow = '0 0 0 3px #000';
+      absentBtn.style.boxShadow = 'none';
+      document.getElementById('editStatusLeave').style.boxShadow = 'none';
+      document.getElementById('editLetterSection').style.display = 'none';
+      document.getElementById('editLetterCheckbox').checked = false;
+    } else if (record.status === 'leave') {
+      document.getElementById('editStatusLeave').style.boxShadow = '0 0 0 3px #000';
+      presentBtn.style.boxShadow = 'none';
+      absentBtn.style.boxShadow = 'none';
+      document.getElementById('editLetterSection').style.display = 'none';
+      document.getElementById('editLetterCheckbox').checked = false;
+    } else {
+      absentBtn.style.boxShadow = '0 0 0 3px #000';
+      presentBtn.style.boxShadow = 'none';
+      document.getElementById('editStatusLeave').style.boxShadow = 'none';
+      document.getElementById('editLetterSection').style.display = 'block';
+      document.getElementById('editLetterCheckbox').checked = record.letterReceived || false;
+    }
+    
+    document.getElementById('editModal').style.display = 'flex';
+  }
+  
+  function setEditStatus(status) {
+    if (!currentEditRecord) return;
+    
+    // If changing to present, always reset letter checkbox
+    if (status === 'present') {
+      document.getElementById('editLetterCheckbox').checked = false;
+      document.getElementById('editLetterSection').style.display = 'none';
+      pendingStatusChange = 'present';
+    } else {
+      // If changing to absent, show letter section
+      document.getElementById('editLetterSection').style.display = 'block';
+      pendingStatusChange = 'absent';
+    }
+    
+    // Update button visual styles
+    const presentBtn = document.getElementById('editStatusPresent');
+    const absentBtn = document.getElementById('editStatusAbsent');
+    const leaveBtn = document.getElementById('editStatusLeave');
+    
+    presentBtn.style.boxShadow = status === 'present' ? '0 0 0 3px #000' : 'none';
+    absentBtn.style.boxShadow = status === 'absent' ? '0 0 0 3px #000' : 'none';
+    leaveBtn.style.boxShadow = status === 'leave' ? '0 0 0 3px #000' : 'none';
+    
+    if (status === 'present') {
+      presentBtn.style.transform = 'scale(1.05)';
+      setTimeout(() => { presentBtn.style.transform = 'scale(1)'; }, 150);
+    } else if (status === 'leave') {
+      leaveBtn.style.transform = 'scale(1.05)';
+      setTimeout(() => { leaveBtn.style.transform = 'scale(1)'; }, 150);
+    } else {
+      absentBtn.style.transform = 'scale(1.05)';
+      setTimeout(() => { absentBtn.style.transform = 'scale(1)'; }, 150);
+    }
+  }
+  
+  function saveEdit() {
+    if (!currentEditRecord) return;
+    
+    // Use pending status change if any, otherwise keep current
+    const finalStatus = pendingStatusChange || currentEditRecord.status;
+    const letterChecked = document.getElementById('editLetterCheckbox').checked;
+    
+    // Prevent saving absent with letter checked while showing present button style
+    // (safety check - though UI should prevent this)
+    if (finalStatus === 'present') {
+      // Force letter to false when status is present
+      // This is a safety net
+    }
+    
+    const idx = attendanceRecords.findIndex(r => r.id == currentEditRecord.id);
+    if (idx !== -1) {
+      attendanceRecords[idx].status = finalStatus;
+      attendanceRecords[idx].letterReceived = (finalStatus === 'absent' ? letterChecked : false);
+      saveToLocal();
+      if (selectedMemberId === currentEditRecord.memberId) renderAttendanceRecords();
+      renderMemberList();
+      showToast("Attendance updated", 1500);
+    }
+    
+    pendingStatusChange = null;
+    closeModal();
+  }
+  
+  function closeModal() { 
+    document.getElementById('editModal').style.display = 'none'; 
+    currentEditRecord = null;
+    pendingStatusChange = null;
+    document.getElementById('editLetterCheckbox').checked = false;
+    document.getElementById('editLetterSection').style.display = 'none';
+  }
+
+  // Mark today with optional absent letter
+  function markToday(memberId, status, letterFlag = false) {
+    const today = new Date().toISOString().slice(0,10);
+    addOrUpdateAttendance(memberId, today, status, letterFlag);
+  }
+
+  // Member management - updated to handle all member fields
+  function addMember(code, sinhalaName, englishName, address, contact, nationalId) {
+    if (!code.trim() || !sinhalaName.trim()) { showToast("Code and Sinhala name required", 1500); return false; }
+    if (members.some(m => m.code.toLowerCase() === code.trim().toLowerCase())) { showToast("Code exists", 1500); return false; }
+    const newId = Date.now() + Math.floor(Math.random()*10000);
+    members.push({ 
+      id: newId, 
+      code: code.trim(), 
+      sinhalaName: sinhalaName.trim(), 
+      englishName: englishName ? englishName.trim() : '',
+      address: address ? address.trim() : '',
+      contact: contact ? contact.trim() : '',
+      nationalId: nationalId ? nationalId.trim() : ''
+    });
+    saveToLocal();
+    renderMemberList();
+    logActivity("Member Added", `Code: ${code.trim()}, Name: ${sinhalaName.trim()}`, 'member');
+    showToast(`${code.trim()} profile is added`, 1400);
+    return true;
+  }
+  function deleteMember(memberId) {
+    if (confirm("Delete member and all attendance?\n\nThis will be moved to Recycle Bin and can be restored later.")) {
+      const member = members.find(m => m.id == memberId);
+      if (member) {
+        // Collect all attendance records for this member before deleting
+        const memberAttendanceRecords = attendanceRecords.filter(r => r.memberId == memberId);
+        
+        // Add member with their attendance records to recycle bin
+        addToRecycleBin('member', {
+          ...member,
+          attendanceRecords: memberAttendanceRecords
+        });
+      }
+      
+      members = members.filter(m => m.id != memberId);
+      attendanceRecords = attendanceRecords.filter(r => r.memberId != memberId);
+      if (selectedMemberId == memberId) {
+        selectedMemberId = members.length > 0 ? members[0].id : null;
+      }
+      saveToLocal();
+      renderMemberList();
+      renderSelectedMemberArea();
+      renderAttendanceRecords();
+      updateFabStates();
+      logActivity("Member Deleted", `Code: ${member.code} moved to Recycle Bin`, 'delete');
+      showToast("Member moved to Recycle Bin", 2000);
+    }
+  }
+  function selectMember(id) {
+    selectedMemberId = id;
+    renderMemberList();
+    renderSelectedMemberArea();
+    renderAttendanceRecords();
+    updateFabStates();
+  }
+  
+  function updateFabStates() {
+    const fabPresent = document.getElementById('fabPresent');
+    const fabAbsent = document.getElementById('fabAbsent');
+    const fabLeave = document.getElementById('fabLeave');
+    
+    if (selectedMemberId) {
+      fabPresent.classList.remove('fab-disabled');
+      fabAbsent.classList.remove('fab-disabled');
+      fabLeave.classList.remove('fab-disabled');
+    } else {
+      fabPresent.classList.add('fab-disabled');
+      fabAbsent.classList.add('fab-disabled');
+      fabLeave.classList.add('fab-disabled');
+    }
+  }
+
+  function renderMemberList() {
+    const container = document.getElementById('memberListContainer');
+    
+    // If search is empty, show all members
+    if (!memberSearchKeyword || memberSearchKeyword.trim() === '') {
+      const filtered = members;
+      updateMemberCount(filtered.length, members.length);
+      renderMembersToContainer(filtered, container);
+      return;
+    }
+    
+    // Search with keyword
+    const searchTerm = memberSearchKeyword.toLowerCase().trim();
+    const filtered = members.filter(m => {
+      const searchFields = [
+        (m.code || '').toLowerCase(),
+        (m.sinhalaName || '').toLowerCase(),
+        (m.englishName || '').toLowerCase(),
+        (m.address || '').toLowerCase(),
+        (m.contact || '').toLowerCase(),
+        (m.nationalId || '').toLowerCase()
+      ];
+      return searchFields.some(field => field.includes(searchTerm));
+    });
+    
+    updateMemberCount(filtered.length, members.length);
+    renderMembersToContainer(filtered, container);
+  }
+  
+  function updateMemberCount(displayedCount, totalCount) {
+    const countElement = document.getElementById('memberCount');
+    if (!countElement) return;
+    
+    if (memberSearchKeyword && memberSearchKeyword.trim() !== '') {
+      countElement.textContent = `${displayedCount} / ${totalCount}`;
+      countElement.style.background = '#e8f0fe';
+      countElement.style.color = '#4a6fa5';
+    } else {
+      countElement.textContent = totalCount;
+      countElement.style.background = '#e0f0e8';
+      countElement.style.color = '#1f6e43';
+    }
+  }
+  
+  function renderMembersToContainer(membersToRender, container) {
+    if (!membersToRender || membersToRender.length === 0) {
+      container.innerHTML = '<div class="empty-state">No members found</div>';
+      return;
+    }
+    
+    container.innerHTML = membersToRender.map(member => {
+      const isSelected = (selectedMemberId === member.id);
+      const hasEnglishName = member.englishName && member.englishName.trim() !== '';
+      const hasAddress = member.address && member.address.trim() !== '';
+      const hasContact = member.contact && member.contact.trim() !== '';
+      const hasNationalId = member.nationalId && member.nationalId.trim() !== '';
+      return `
+        <div class="member-card ${isSelected ? 'selected' : ''}" data-id="${member.id}">
+          <div class="member-info">
+            <h4 class="sinhala-name">${escapeHtml(member.sinhalaName || '')}</h4>
+            ${hasEnglishName ? `<div class="english-name">${escapeHtml(member.englishName)}</div>` : ''}
+            ${hasAddress ? `<div class="sinhala-address">${escapeHtml(member.address)}</div>` : ''}
+            ${hasContact ? `<div class="contact-number"><i class="fas fa-phone-alt"></i> ${escapeHtml(member.contact)}</div>` : ''}
+            ${hasNationalId ? `<div class="national-id"><i class="fas fa-id-card"></i> ${escapeHtml(member.nationalId)}</div>` : ''}
+            <small>${escapeHtml(member.code || '')}</small>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    // Re-bind event listeners for member card selection
+    document.querySelectorAll('.member-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        selectMember(parseInt(card.dataset.id));
+      });
+    });
+  }
+
+  function renderSelectedMemberArea() {
+    const member = selectedMemberId ? getMemberById(selectedMemberId) : null;
+    const hasEnglishName = member && member.englishName && member.englishName.trim() !== '';
+    document.getElementById('selectedMemberEnglishName').innerText = hasEnglishName ? member.englishName : '';
+    document.getElementById('selectedMemberName').innerText = member ? member.sinhalaName : '—';
+    document.getElementById('selectedMemberAddress').innerText = member && member.address ? member.address : '—';
+    document.getElementById('selectedMemberContactValue').innerText = member && member.contact ? member.contact : '—';
+    document.getElementById('selectedMemberNationalIdValue').innerText = member && member.nationalId ? member.nationalId : '—';
+    document.getElementById('selectedMemberCode').innerText = member ? member.code : '—';
+  }
+
+  function renderAttendanceRecords() {
+    const container = document.getElementById('attendanceRecordsArea');
+    if (!selectedMemberId) { container.innerHTML = `<div class="empty-state"><i class="fas fa-user"></i> Select a member</div>`; return; }
+    let records = attendanceRecords.filter(r => r.memberId === selectedMemberId).sort((a,b)=>b.date.localeCompare(a.date));
+    if (attendanceMonthFilter) records = records.filter(r => r.date.startsWith(attendanceMonthFilter));
+    if (records.length === 0) { container.innerHTML = `<div class="empty-state">No attendance records</div>`; return; }
+    const tableHtml = `
+      <table>
+        <thead><tr><th>Date</th><th>Status</th><th>Letter</th><th class="master-only">Actions</th></tr></thead>
+        <tbody>
+          ${records.map(rec => {
+            let statusHtml = '';
+            if (rec.status === 'present') statusHtml = `<span class="status-badge status-present"><i class="fas fa-check-circle"></i> Present</span>`;
+            else if (rec.status === 'leave') statusHtml = `<span class="status-badge status-leave"><i class="fas fa-file-alt"></i> Leave</span>`;
+            else statusHtml = `<span class="status-badge status-absent"><i class="fas fa-times-circle"></i> Absent</span>`;
+            const letterHtml = rec.status === 'absent' ? 
+              (rec.letterReceived ? '<span class="letter-icon" style="color:#2c6e3e;"><i class="fas fa-envelope"></i> Yes</span>' : '<span style="color:#9e3c2c;"><i class="fas fa-envelope-open"></i> No</span>') 
+              : '—';
+            return `
+              <tr data-record-id="${rec.id}">
+                <td><strong>${rec.date}</strong></td>
+                <td>${statusHtml}</td>
+                <td>${letterHtml}</td>
+                <td class="record-actions master-only">
+                  <button class="edit-record" data-id="${rec.id}" title="Edit"><i class="fas fa-edit"></i></button>
+                  <button class="delete-record" data-id="${rec.id}" title="Delete"><i class="fas fa-trash-alt"></i></button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+    container.innerHTML = tableHtml;
+    
+    // Attach event listeners using event delegation
+    container.addEventListener('click', (e) => {
+      const editBtn = e.target.closest('.edit-record');
+      const deleteBtn = e.target.closest('.delete-record');
+      
+      if (editBtn) {
+        const id = editBtn.dataset.id;
+        const record = attendanceRecords.find(r => r.id == id);
+        if (record) openEditModal(record);
+      }
+      
+      if (deleteBtn) {
+        const id = deleteBtn.dataset.id;
+        const record = attendanceRecords.find(r => r.id == id);
+        if (record) deleteAttendanceRecord(id, record.memberId);
+      }
+    });
+  }
+
+  // Month filter
+  function applyMonthFilter() { attendanceMonthFilter = document.getElementById('monthFilterInput').value; renderAttendanceRecords(); }
+  function resetMonthFilter() { document.getElementById('monthFilterInput').value = ''; attendanceMonthFilter = ''; renderAttendanceRecords(); }
+
+  // Previous day marking logic: present or absent with checkbox
+  let pendingAbsentDate = null;
+  function showAbsentLetterOptionForPrev(date) {
+    pendingAbsentDate = date;
+    const container = document.getElementById('absentLetterCheckboxContainer');
+    container.style.display = 'inline-flex';
+    document.getElementById('absentLetterFlag').checked = false;
+  }
+  function executePrevAbsentWithLetter() {
+    if (!pendingAbsentDate) return;
+    const letterFlag = document.getElementById('absentLetterFlag').checked;
+    if (selectedMemberId) {
+      addOrUpdateAttendance(selectedMemberId, pendingAbsentDate, 'absent', letterFlag);
+    } else { showToast("Select a member", 1000); }
+    document.getElementById('absentLetterCheckboxContainer').style.display = 'none';
+    pendingAbsentDate = null;
+  }
+  function markPrevPresent() {
+    if (!selectedMemberId) { showToast("Select member", 1000); return; }
+    const date = document.getElementById('prevDatePicker').value;
+    if (!date) { showToast("Pick a date", 1000); return; }
+    addOrUpdateAttendance(selectedMemberId, date, 'present', false);
+    document.getElementById('absentLetterCheckboxContainer').style.display = 'none';
+    pendingAbsentDate = null;
+  }
+  function markPrevAbsentWithPrompt() {
+    if (!selectedMemberId) { showToast("Select member", 1000); return; }
+    const date = document.getElementById('prevDatePicker').value;
+    if (!date) { showToast("Pick a date", 1000); return; }
+    showAbsentLetterOptionForPrev(date);
+  }
+  
+  function markPrevLeave() {
+    if (!selectedMemberId) { showToast("Select member", 1000); return; }
+    const date = document.getElementById('prevDatePicker').value;
+    if (!date) { showToast("Pick a date", 1000); return; }
+    addOrUpdateAttendance(selectedMemberId, date, 'leave', false);
+    updateFabStates();
+  }
+  function setupPrevAbsentUI() {
+    const container = document.getElementById('absentLetterCheckboxContainer');
+    if (!document.getElementById('confirmAbsentBtn')) {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.id = 'confirmAbsentBtn';
+      confirmBtn.innerText = 'Confirm Absent';
+      confirmBtn.className = 'primary-btn';
+      confirmBtn.style.background = '#9e3c2c';
+      confirmBtn.style.marginLeft = '8px';
+      confirmBtn.addEventListener('click', () => {
+        if (pendingAbsentDate && selectedMemberId) {
+          const letter = document.getElementById('absentLetterFlag').checked;
+          addOrUpdateAttendance(selectedMemberId, pendingAbsentDate, 'absent', letter);
+          container.style.display = 'none';
+          pendingAbsentDate = null;
+          document.getElementById('absentLetterFlag').checked = false;
+        } else { showToast("Select a member or date", 1000); }
+      });
+      container.appendChild(confirmBtn);
+    }
+  }
+
+  // Mark today actions
+  function handlePresentToday() { 
+    if(selectedMemberId) {
+      markToday(selectedMemberId, 'present', false); 
+      animateFab(document.getElementById('fabPresent'));
+    } else {
+      showToast("Select a member first", 1000); 
+    }
+  }
+  function handleAbsentToday() {
+    if(!selectedMemberId) { showToast("Select a member first", 1000); return; }
+    const letter = confirm("Did you receive an absence letter? (OK = yes, Cancel = no)");
+    markToday(selectedMemberId, 'absent', letter);
+    animateFab(document.getElementById('fabAbsent'));
+  }
+  
+  function handleLeaveToday() {
+    if(!selectedMemberId) { showToast("Select a member first", 1000); return; }
+    markToday(selectedMemberId, 'leave', false);
+    animateFab(document.getElementById('fabLeave'));
+  }
+  
+  function animateFab(button) {
+    button.style.transform = 'scale(1.2)';
+    setTimeout(() => {
+      button.style.transform = '';
+    }, 200);
+  }
+
+  // toast helper
+  function showToast(msg, time=1700) {
+    const toast = document.getElementById('toastMsg');
+    toast.innerText = msg;
+    toast.style.opacity = '1';
+    setTimeout(() => toast.style.opacity = '0', time);
+  }
+  
+  // Member Edit Modal Functions
+  function openEditMemberModal() {
+    if (!selectedMemberId) {
+      showToast("Select a member first", 1000);
+      return;
+    }
+    const member = getMemberById(selectedMemberId);
+    if (!member) return;
+    
+    document.getElementById('editMemberCodeDisplay').innerText = `Editing: ${member.code}`;
+    document.getElementById('editMemberCode').value = member.code || '';
+    document.getElementById('editMemberSinhalaName').value = member.sinhalaName || '';
+    document.getElementById('editMemberEnglishName').value = member.englishName || '';
+    document.getElementById('editMemberAddress').value = member.address || '';
+    document.getElementById('editMemberContact').value = member.contact || '';
+    document.getElementById('editMemberNationalId').value = member.nationalId || '';
+    
+    document.getElementById('editMemberModal').style.display = 'flex';
+  }
+  
+  function saveMemberEdit() {
+    if (!selectedMemberId) return;
+    
+    const member = getMemberById(selectedMemberId);
+    if (!member) return;
+    
+    const newCode = document.getElementById('editMemberCode').value.trim();
+    const sinhalaName = document.getElementById('editMemberSinhalaName').value.trim();
+    const englishName = document.getElementById('editMemberEnglishName').value.trim();
+    const address = document.getElementById('editMemberAddress').value.trim();
+    const contact = document.getElementById('editMemberContact').value.trim();
+    const nationalId = document.getElementById('editMemberNationalId').value.trim();
+    
+    if (!newCode || !sinhalaName) {
+      showToast("Code and Sinhala name required", 1500);
+      return;
+    }
+    
+    // Check if code is used by another member
+    const codeExists = members.some(m => m.id != selectedMemberId && m.code.toLowerCase() === newCode.toLowerCase());
+    if (codeExists) {
+      showToast("Code already used by another member", 1500);
+      return;
+    }
+    
+    // Update member
+    member.code = newCode;
+    member.sinhalaName = sinhalaName;
+    member.englishName = englishName;
+    member.address = address;
+    member.contact = contact;
+    member.nationalId = nationalId;
+    
+    saveToLocal();
+    renderMemberList();
+    renderSelectedMemberArea();
+    closeMemberEditModal();
+    logActivity("Member Edited", `Code: ${member.code} details updated`, 'member');
+    showToast("Member updated", 1500);
+  }
+  
+  function closeMemberEditModal() {
+    document.getElementById('editMemberModal').style.display = 'none';
+  }
+  
+  // ========== BACKUP & RESTORE FUNCTIONS ==========
+  async function backupProject() {
+    const now = new Date();
+    
+    // Create comprehensive timestamp for the backup
+    const timestampISO = now.toISOString();
+    const timestampDisplay = now.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const timestampForFilename = now.toISOString().replace(/[:-]/g, '').replace('T', '_').slice(0, 15);
+    
+    // Ensure we capture the CURRENT state of all data including recycle bin
+    // Refresh data from localStorage to ensure we have the latest
+    const currentMembers = JSON.parse(JSON.stringify(members));
+    const currentAttendanceRecords = JSON.parse(JSON.stringify(attendanceRecords));
+    const currentRecycleBin = JSON.parse(JSON.stringify(recycleBin));
+    const currentActivityLog = JSON.parse(JSON.stringify(activityLog));
+    
+    // Generate members data for database.js
+    const residents = currentMembers.map(m => ({
+      id: m.id, // Explicitly preserve ID for record linking
+      code: m.code,
+      sinhalaNameFmmalithi: m.sinhalaName,
+      sinhalaNameUnicode: '',
+      englishName: m.englishName,
+      nationalID: m.nationalId,
+      sinhalaAddressFmmalithi: m.address,
+      contactNumber: m.contact
+    }));
+    
+    // Generate attendance records export with member codes
+    const attendanceExport = currentAttendanceRecords.map(r => ({
+      id: r.id,
+      memberId: r.memberId,
+      memberCode: getMemberById(r.memberId)?.code || '',
+      date: r.date,
+      status: r.status,
+      letterReceived: r.letterReceived || false
+    }));
+    
+    // Generate recycle bin export with all deleted items
+    const recycleBinExport = currentRecycleBin.map(item => ({
+      id: item.id,
+      type: item.type,
+      data: item.data,
+      deletedAt: item.deletedAt,
+      originalId: item.originalId
+    }));
+    
+    const databaseJsContent = `// database.js
+// Sanasa Attendance System Backup
+// Auto-generated by Sanasa Attendance System
+// Backup Date: ${timestampDisplay}
+// Backup Timestamp (ISO): ${timestampISO}
+// Members: ${currentMembers.length}
+// Attendance Records: ${currentAttendanceRecords.length}
+// Recycle Bin Items: ${currentRecycleBin.length}
+// Activity Logs: ${currentActivityLog.length}
+
+const ALL_RESIDENTS = ${JSON.stringify(residents, null, 2)};
+const ACTIVITY_LOG = ${JSON.stringify(currentActivityLog, null, 2)};
+
+// Attendance Records Export (Current State)
+const ATTENDANCE_RECORDS = ${JSON.stringify(attendanceExport, null, 2)};
+
+// Recycle Bin Export (Deleted Items - Can be Restored)
+const RECYCLE_BIN = ${JSON.stringify(recycleBinExport, null, 2)};
+
+// Backup Metadata
+const BACKUP_INFO = {
+  version: '2.0',
+  backupDate: '${timestampDisplay}',
+  backupTimestamp: '${timestampISO}',
+  backupTimestampUnix: ${now.getTime()},
+  memberCount: ${currentMembers.length},
+  attendanceRecordCount: ${currentAttendanceRecords.length},
+  recycleBinCount: ${currentRecycleBin.length},
+  activityLogCount: ${currentActivityLog.length},
+  generatedAt: '${new Date().toUTCString()}'
+};
+
+// Utility functions
+function getAllResidents() {
+  return ALL_RESIDENTS;
+}
+
+function findResidentByCode(code) {
+  return ALL_RESIDENTS.find(resident => resident.code === code) || null;
+}
+
+function findResidentsByName(name) {
+  const searchTerm = name.toLowerCase();
+  return ALL_RESIDENTS.filter(resident => 
+    resident.englishName.toLowerCase().includes(searchTerm) ||
+    resident.sinhalaNameUnicode.includes(searchTerm) ||
+    resident.sinhalaNameFmmalithi.includes(searchTerm)
+  );
+}
+
+function findResidentsByNationalID(nationalID) {
+  return ALL_RESIDENTS.filter(resident => resident.nationalID === nationalID);
+}
+
+// For browser environments
+if (typeof window !== 'undefined') {
+  window.residentDatabase = {
+    getAll: getAllResidents,
+    findByCode: findResidentByCode,
+    findByName: findResidentsByName,
+    findByNationalID: findResidentsByNationalID,
+    allRecords: ALL_RESIDENTS,
+    attendanceRecords: ATTENDANCE_RECORDS,
+    recycleBin: RECYCLE_BIN,
+    activityLog: ACTIVITY_LOG,
+    backupInfo: BACKUP_INFO
+  };
+}
+
+// For Node.js / ES modules
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ALL_RESIDENTS,
+    ATTENDANCE_RECORDS,
+    RECYCLE_BIN,
+    ACTIVITY_LOG,
+    BACKUP_INFO,
+    getAllResidents,
+    findResidentByCode,
+    findResidentsByName,
+    findResidentsByNationalID
+  };
+}
+`;
+    
+    // Create a comprehensive backup zip file
+    // Variables indexHtmlContent and zip will be declared below in the asset fetching block
+
+    
+    // Function to get image as base64 by reloading with CORS
+    async function getImageAsBase64(imgElement) {
+      return new Promise((resolve, reject) => {
+        try {
+          // Try to load image via CORS-enabled fetch
+          const imgSrc = imgElement.src;
+          
+          // Create a new image with CORS
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          
+          img.onload = function() {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+              resolve(dataUrl);
+            } catch (e) {
+              resolve(null);
+            }
+          };
+          
+          img.onerror = function() {
+            resolve(null);
+          };
+          
+          img.src = imgSrc;
+          
+          // Timeout after 5 seconds
+          setTimeout(() => resolve(null), 5000);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }
+    
+    // Function to read file as binary data
+    async function fetchFileAsBinary(filePath) {
+      try {
+        // Encode special characters like spaces in filename
+        const encodedPath = encodeURI(filePath);
+        const response = await fetch(encodedPath);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          return new Uint8Array(arrayBuffer);
+        }
+      } catch (e) {
+        console.warn(`Could not fetch ${filePath}:`, e);
+      }
+      return null;
+    }
+    
+    // Get the current index.html content
+    // We try to fetch the source first, then fallback to outerHTML
+    let indexHtmlContent = null;
+    try {
+      const response = await fetch('index.html');
+      if (response.ok) {
+        indexHtmlContent = await response.text();
+      }
+    } catch (e) {
+      console.warn('Could not fetch index.html source, using current DOM state', e);
+    }
+    if (!indexHtmlContent) {
+      // Hide all modals temporarily to capture a clean state for the backup
+      const modals = document.querySelectorAll('.modal');
+      const originalDisplays = Array.from(modals).map(m => m.style.display);
+      modals.forEach(m => m.style.display = 'none');
+
+      // Clear dynamically rendered DOM containers so they're not baked into backup HTML
+      const memberListContainer = document.getElementById('memberListContainer');
+      const attendanceContainer = document.getElementById('attendanceList') || document.getElementById('attendanceRecordsContainer');
+      const selectedMemberArea = document.getElementById('selectedMemberArea');
+      const activityLogList = document.getElementById('activityLogList');
+      const recycleBinList = document.getElementById('recycleBinList');
+
+      const savedMemberHTML = memberListContainer ? memberListContainer.innerHTML : '';
+      const savedAttendanceHTML = attendanceContainer ? attendanceContainer.innerHTML : '';
+      const savedSelectedArea = selectedMemberArea ? selectedMemberArea.innerHTML : '';
+      const savedActivityLog = activityLogList ? activityLogList.innerHTML : '';
+      const savedRecycleBin = recycleBinList ? recycleBinList.innerHTML : '';
+
+      if (memberListContainer) memberListContainer.innerHTML = '';
+      if (attendanceContainer) attendanceContainer.innerHTML = '';
+      if (selectedMemberArea) selectedMemberArea.innerHTML = '';
+      if (activityLogList) activityLogList.innerHTML = '';
+      if (recycleBinList) recycleBinList.innerHTML = '';
+
+      indexHtmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+      // Restore modal visibility states for the current session
+      modals.forEach((m, i) => m.style.display = originalDisplays[i]);
+
+      // Restore dynamic content for the current session
+      if (memberListContainer) memberListContainer.innerHTML = savedMemberHTML;
+      if (attendanceContainer) attendanceContainer.innerHTML = savedAttendanceHTML;
+      if (selectedMemberArea) selectedMemberArea.innerHTML = savedSelectedArea;
+      if (activityLogList) activityLogList.innerHTML = savedActivityLog;
+      if (recycleBinList) recycleBinList.innerHTML = savedRecycleBin;
+    }
+    
+    // Create a comprehensive backup zip file
+    const zip = new JSZip();
+    
+    // Add main files
+    zip.file('index.html', indexHtmlContent);
+    zip.file('database.js', databaseJsContent);
+    
+    // Try to get and add the font file
+    console.log('Fetching assets for backup...');
+    const fontData = await fetchFileAsBinary('FM-Malithi-x.ttf');
+    if (fontData) {
+      zip.file('FM-Malithi-x.ttf', fontData);
+      console.log('Font file added to backup');
+    } else {
+      console.warn('Font file could not be fetched for backup');
+    }
+    
+    // Try to get and add the logo file
+    let logoData = await fetchFileAsBinary('sanasa logo.jpg');
+    if (!logoData) {
+      console.log('Fetch failed for logo, attempting canvas fallback...');
+      // Fallback: Get logo from DOM
+      const logoImg = document.getElementById('appLogo');
+      if (logoImg) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = logoImg.naturalWidth || logoImg.width;
+          canvas.height = logoImg.naturalHeight || logoImg.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(logoImg, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          if (dataUrl) {
+            const base64Content = dataUrl.split(',')[1];
+            const binaryString = window.atob(base64Content);
+            const len = binaryString.length;
+            logoData = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              logoData[i] = binaryString.charCodeAt(i);
+            }
+          }
+        } catch (e) {
+          console.warn('Canvas logo recovery failed (likely CORS/security):', e);
+        }
+      }
+    }
+    
+    if (logoData) {
+      zip.file('sanasa logo.jpg', logoData);
+      console.log('Logo file added to backup');
+    } else {
+      console.warn('Logo file could not be recovered for backup');
+    }
+    
+    console.log('Backup generation prepared.');
+    
+    // Add unified backup info text file
+    const backupInfoText = `SANASA ATTENDANCE SYSTEM - COMPLETE PROJECT BACKUP
+=================================================
+
+Backup Context
+--------------
+App Version: v1.0.6
+Backup Date: ${timestampDisplay}
+ISO Timestamp: ${timestampISO}
+Generated By: ${navigator.userAgent}
+
+Data Summary
+------------
+Members: ${currentMembers.length}
+Attendance Records: ${currentAttendanceRecords.length}
+Recycle Bin Items: ${currentRecycleBin.length}
+Activity Logs: ${currentActivityLog.length}
+
+Files Included in this .coop Backup
+-----------------------------------
+- index.html: Main application
+- database.js: Complete database export
+${logoData ? '- sanasa logo.jpg: Application logo included' : '- [MISSING] sanasa logo.jpg: Please manually copy logo for complete portability'}
+${fontData ? '- FM-Malithi-x.ttf: Sinhala font included' : '- [MISSING] FM-Malithi-x.ttf: Please manually copy the font file for proper Sinhala display'}
+
+Restoration Instructions
+------------------------
+1. Extract the contents of this .coop file to a folder.
+2. Open index.html in any modern web browser.
+3. All your members, attendance, and recycle bin data will be automatically loaded.
+
+Note on Portability:
+If you are running the system via the 'file://' protocol, browsers may block loading the 
+font or logo due to security restrictions. For the best experience, host the folder 
+on a local or remote web server.
+
+=================================================
+Generated by Sanasa Attendance System Backup Feature
+`;
+    zip.file('BACKUP_INFO.txt', backupInfoText);
+    
+    console.log('Backup generation prepared.');
+    
+    // Generate the zip file
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    // Create download link
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sanasa_backup_${timestampForFilename}.coop`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Show detailed confirmation with status of assets
+    let assetStatus = '';
+    if (!fontData || !logoData) {
+      assetStatus = ' (Note: Some assets missed, see BACKUP_INFO.txt)';
+    }
+    
+    showToast(`Project backup saved successfully!${assetStatus}`, 4000);
+    document.getElementById('backupRestoreModal').style.display = 'none';
+    logActivity("Project Backup", `Created backup with ${currentMembers.length} members`, 'system');
+  }
+  
+  function restoreProject(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+      try {
+        const content = event.target.result;
+        
+        // Check if it's a .coop file (zip archive) or a .js file
+        const isCoopFile = file.name.toLowerCase().endsWith('.coop');
+        
+        if (isCoopFile) {
+          // Handle .coop file (zip archive)
+          const arrayBuffer = event.target.result;
+          const zip = await JSZip.loadAsync(arrayBuffer);
+          
+          // Extract backup info
+          let backupDate = 'Unknown';
+          let backupTimestamp = null;
+          let memberCount = 0;
+          let attendanceCount = 0;
+          let recycleBinCount = 0;
+          let activityLogCount = 0;
+          
+          // Try to read BACKUP_INFO.txt
+          const infoFile = zip.file('BACKUP_INFO.txt');
+          if (infoFile) {
+            const infoContent = await infoFile.async('string');
+            const dateMatch = infoContent.match(/Backup Date:\s*(.+)/);
+            const timestampMatch = infoContent.match(/ISO Timestamp:\s*(.+)/);
+            const memberMatch = infoContent.match(/Members:\s*(\d+)/);
+            const attendanceMatch = infoContent.match(/Attendance Records:\s*(\d+)/);
+            const recycleMatch = infoContent.match(/Recycle Bin Items:\s*(\d+)/);
+            const activityMatch = infoContent.match(/Activity Logs:\s*(\d+)/);
+            
+            if (dateMatch) backupDate = dateMatch[1].trim();
+            if (timestampMatch) backupTimestamp = timestampMatch[1].trim();
+            if (memberMatch) memberCount = parseInt(memberMatch[1]);
+            if (attendanceMatch) attendanceCount = parseInt(attendanceMatch[1]);
+            if (recycleMatch) recycleBinCount = parseInt(recycleMatch[1]);
+            if (activityMatch) activityLogCount = parseInt(activityMatch[1]);
+          }
+          
+          // Extract and parse database.js
+          const dbFile = zip.file('database.js');
+          if (!dbFile) {
+            throw new Error('Invalid .coop file - no database.js found');
+          }
+          
+          const dbContent = await dbFile.async('string');
+          
+          // Extract members from database.js
+          const residentsMatch = dbContent.match(/ALL_RESIDENTS\s*=\s*(\[[\s\S]*?\]);?/);
+          if (!residentsMatch) {
+            throw new Error('Invalid database format in backup');
+          }
+          
+          const importedResidents = eval(residentsMatch[1]);
+          
+          // Extract attendance records
+          let importedAttendance = [];
+          const attendanceMatch = dbContent.match(/ATTENDANCE_RECORDS\s*=\s*(\[[\s\S]*?\]);?/);
+          if (attendanceMatch) {
+            try {
+              importedAttendance = eval(attendanceMatch[1]);
+            } catch (e) {
+              importedAttendance = [];
+            }
+          }
+          
+          // Extract recycle bin data
+          let importedRecycleBin = [];
+          const recycleBinMatch = dbContent.match(/RECYCLE_BIN\s*=\s*(\[[\s\S]*?\]);?/);
+          if (recycleBinMatch) {
+            try {
+              importedRecycleBin = eval(recycleBinMatch[1]);
+            } catch (e) {
+              importedRecycleBin = [];
+            }
+          }
+          
+          // Extract activity log
+          let importedActivityLog = [];
+          const activityLogMatch = dbContent.match(/ACTIVITY_LOG\s*=\s*(\[[\s\S]*?\]);?/);
+          if (activityLogMatch) {
+            try {
+              importedActivityLog = eval(activityLogMatch[1]);
+            } catch (e) {
+              importedActivityLog = [];
+            }
+          }
+          
+          if (!Array.isArray(importedResidents) || importedResidents.length === 0) {
+            throw new Error('No members found in backup file');
+          }
+          
+          // Show detailed backup information including timestamp
+          const timestampInfo = backupTimestamp ? `\nBackup Timestamp: ${backupTimestamp}` : '';
+          if (confirm(`Complete Project Backup Found!\n\nBackup Date: ${backupDate}${timestampInfo}\nMembers: ${importedResidents.length}\nAttendance Records: ${importedAttendance.length}\nRecycle Bin Items: ${importedRecycleBin.length}\nActivity Logs: ${importedActivityLog.length}\n\nThis will replace ALL current data including logs. Continue?`)) {
+            // Convert residents to members format
+            members = importedResidents.map((resident, index) => ({
+              id: resident.id || (index + 1), // Preserve original ID if available
+              code: (resident.code || '').toString(),
+              sinhalaName: (resident.sinhalaNameFmmalithi || '').toString(),
+              englishName: (resident.englishName || '').toString(),
+              address: (resident.sinhalaAddressFmmalithi || '').toString(),
+              contact: (resident.contactNumber || '').toString(),
+              nationalId: (resident.nationalID || '').toString()
+            }));
+            
+            // Build a map of codes to IDs for record reconciliation
+            const codeToIdMap = {};
+            members.forEach(m => {
+              codeToIdMap[m.code.toLowerCase()] = m.id;
+            });
+            
+            // Convert attendance records with ID reconciliation
+            attendanceRecords = importedAttendance.map((r, idx) => {
+              let finalMemberId = r.memberId;
+              
+              // If memberId is missing or link seems broken, try to find by code
+              if (r.memberCode) {
+                const mappedId = codeToIdMap[r.memberCode.toLowerCase()];
+                if (mappedId) finalMemberId = mappedId;
+              }
+              
+              return {
+                id: r.id || (Date.now() + idx),
+                memberId: finalMemberId,
+                date: r.date,
+                status: r.status,
+                letterReceived: r.letterReceived || false
+              };
+            });
+            
+            // Restore recycle bin data
+            recycleBin = importedRecycleBin.map(item => ({
+              id: item.id || (Date.now() + Math.floor(Math.random() * 10000)),
+              type: item.type,
+              data: item.data,
+              deletedAt: item.deletedAt,
+              originalId: item.originalId
+            }));
+            
+            // Restore activity log
+            activityLog = importedActivityLog;
+            
+            saveToLocal();
+            // Update sync status to show restored backup time
+            lastBackupTimestamp = backupTimestamp || backupDate;
+            showRestoredStatus(lastBackupTimestamp);
+            renderMemberList();
+            renderSelectedMemberArea();
+            renderAttendanceRecords();
+            renderRecycleBinList();
+            updateFabStates();
+            
+            logActivity("Project Restored", `Restored ${members.length} members from backup`, 'system');
+            showToast(`Project restored from backup (${backupDate})!`, 3000);
+          }
+        } else {
+          // Handle legacy .js file (original format)
+          // Extract backup info including timestamp
+          let backupDate = 'Unknown';
+          let backupTimestamp = null;
+          const infoMatch = content.match(/backupDate:\s*'([^']+)'/);
+          if (infoMatch) backupDate = infoMatch[1];
+          
+          const timestampMatch = content.match(/backupTimestamp:\s*'([^']+)'/);
+          if (timestampMatch) backupTimestamp = timestampMatch[1];
+          
+          // Try to extract ALL_RESIDENTS
+          const residentsMatch = content.match(/ALL_RESIDENTS\s*=\s*(\[[\s\S]*?\]);/);
+          if (!residentsMatch) {
+            throw new Error('Invalid backup file - no members found');
+          }
+          
+          const importedResidents = eval(residentsMatch[1]);
+          
+          // Try to extract ATTENDANCE_RECORDS
+          let importedAttendance = [];
+          const attendanceMatch = content.match(/ATTENDANCE_RECORDS\s*=\s*(\[[\s\S]*?\]);/);
+          if (attendanceMatch) {
+            try {
+              importedAttendance = eval(attendanceMatch[1]);
+            } catch (e) {
+              importedAttendance = [];
+            }
+          }
+          
+          // Try to extract RECYCLE_BIN (for newer backups)
+          let importedRecycleBin = [];
+          const recycleBinMatch = content.match(/RECYCLE_BIN\s*=\s*(\[[\s\S]*?\]);/);
+          if (recycleBinMatch) {
+            try {
+              importedRecycleBin = eval(recycleBinMatch[1]);
+            } catch (e) {
+              importedRecycleBin = [];
+            }
+          }
+          
+          // Try to extract ACTIVITY_LOG
+          let importedActivityLog = [];
+          const activityLogMatch = content.match(/ACTIVITY_LOG\s*=\s*(\[[\s\S]*?\]);/);
+          if (activityLogMatch) {
+            try {
+              importedActivityLog = eval(activityLogMatch[1]);
+            } catch (e) {
+              importedActivityLog = [];
+            }
+          }
+          
+          if (!Array.isArray(importedResidents) || importedResidents.length === 0) {
+            throw new Error('No members found in backup file');
+          }
+          
+          // Show detailed backup information including timestamp
+          const timestampInfo = backupTimestamp ? `\nBackup Timestamp: ${backupTimestamp}` : '';
+          if (confirm(`Backup Information:\nDate: ${backupDate}${timestampInfo}\nMembers: ${importedResidents.length}\nAttendance Records: ${importedAttendance.length}\nRecycle Bin Items: ${importedRecycleBin.length}\nActivity Logs: ${importedActivityLog.length}\n\nThis will replace ALL current data. Continue?`)) {
+            // Convert residents to members format
+            members = importedResidents.map((resident, index) => ({
+              id: resident.id || (index + 1), // Preserve original ID if available
+              code: (resident.code || '').toString(),
+              sinhalaName: (resident.sinhalaNameFmmalithi || '').toString(),
+              englishName: (resident.englishName || '').toString(),
+              address: (resident.sinhalaAddressFmmalithi || '').toString(),
+              contact: (resident.contactNumber || '').toString(),
+              nationalId: (resident.nationalID || '').toString()
+            }));
+            
+            // Build a map of codes to IDs for record reconciliation
+            const codeToIdMap = {};
+            members.forEach(m => {
+              codeToIdMap[m.code.toLowerCase()] = m.id;
+            });
+            
+            // Convert attendance records with ID reconciliation
+            attendanceRecords = importedAttendance.map((r, idx) => {
+              let finalMemberId = r.memberId;
+              
+              // If memberId is missing or link seems broken, try to find by code
+              if (r.memberCode) {
+                const mappedId = codeToIdMap[r.memberCode.toLowerCase()];
+                if (mappedId) finalMemberId = mappedId;
+              }
+              
+              return {
+                id: r.id || (Date.now() + idx),
+                memberId: finalMemberId,
+                date: r.date,
+                status: r.status,
+                letterReceived: r.letterReceived || false
+              };
+            });
+            
+            // Restore recycle bin data if available
+            recycleBin = importedRecycleBin.map(item => ({
+              id: item.id || (Date.now() + Math.floor(Math.random() * 10000)),
+              type: item.type,
+              data: item.data,
+              deletedAt: item.deletedAt,
+              originalId: item.originalId
+            }));
+            
+            // Restore activity log
+            activityLog = importedActivityLog;
+            
+            saveToLocal();
+            // Update sync status to show restored backup time
+            lastBackupTimestamp = backupTimestamp || backupDate;
+            showRestoredStatus(lastBackupTimestamp);
+            renderMemberList();
+            renderSelectedMemberArea();
+            renderAttendanceRecords();
+            renderRecycleBinList();
+            updateFabStates();
+            
+            logActivity("Project Restored", `Restored ${members.length} members from legacy backup`, 'system');
+            showToast(`Restored from backup (${backupDate})!`, 3000);
+          }
+        }
+      } catch (error) {
+        console.error('Restore error:', error);
+        showToast('Error: Invalid backup file - ' + error.message, 3000);
+      }
+    };
+    
+    // Read as array buffer for zip files, text for js files
+    const isCoopFile = file.name.toLowerCase().endsWith('.coop');
+    if (isCoopFile) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
+    
+    e.target.value = ''; // Reset for same file selection
+    document.getElementById('logoMenuModal').style.display = 'none';
+  }
+  // ========== END BACKUP & RESTORE ==========
+
+  // ========== SYNC STATUS FUNCTIONS ==========
+  // Track if data is from local storage (restored/edited)
+  let dataFromLocalStorage = false;
+  let lastBackupTimestamp = null;
+
+  // Format date for display
+  function formatBackupDate(isoDate) {
+    if (!isoDate) return '';
+    try {
+      const date = new Date(isoDate);
+      const options = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      };
+      return date.toLocaleDateString('en-US', options);
+    } catch (e) {
+      return isoDate;
+    }
+  }
+
+  // Show "Sync in progress" when loading from localStorage
+  function showSyncInProgress() {
+    const syncStatus = document.getElementById('syncStatus');
+    const syncText = document.getElementById('syncText');
+    if (syncStatus && syncText) {
+      syncStatus.className = 'badge-stats syncing';
+      syncStatus.querySelector('.sync-icon').className = 'fas fa-sync-alt sync-icon';
+      syncText.textContent = 'Sync in progress';
+    }
+  }
+
+  // Show "Real-time sync" when using default database
+  function showSyncedStatus() {
+    const syncStatus = document.getElementById('syncStatus');
+    const syncText = document.getElementById('syncText');
+    if (syncStatus && syncText) {
+      syncStatus.className = 'badge-stats synced';
+      syncStatus.querySelector('.sync-icon').className = 'fas fa-check-circle sync-icon';
+      syncText.textContent = 'Real-time sync';
+    }
+  }
+
+  // Show backup time/date when using restore functionality
+  function showRestoredStatus(backupDate) {
+    const syncStatus = document.getElementById('syncStatus');
+    const syncText = document.getElementById('syncText');
+    if (syncStatus && syncText) {
+      syncStatus.className = 'badge-stats restored';
+      syncStatus.querySelector('.sync-icon').className = 'fas fa-undo sync-icon';
+      const formattedDate = formatBackupDate(backupDate);
+      syncText.textContent = 'Restored: ' + formattedDate;
+    }
+  }
+  // ========== END SYNC STATUS FUNCTIONS ==========
+
+  // ========== CLEAN RECYCLE BIN PASSWORD SYSTEM ==========
+
+  
+  function checkLogin() {
+    const user = document.getElementById('loginUsername').value;
+    const pass = document.getElementById('loginPassword').value;
+    const error = document.getElementById('loginError');
+    const box = document.getElementById('loginBox');
+    const attemptsInfo = document.getElementById('loginAttemptsInfo');
+
+    if (user === LOGIN_USERNAME && pass === LOGIN_PASSWORD) {
+      document.getElementById('loginOverlay').style.display = 'none';
+      loginAttempts = 0;
+      logActivity("System Login", "Authorized access granted", "system");
+      showToast('Welcome to Sanasa System', 3000);
+    } else {
+      loginAttempts++;
+      error.textContent = "Invalid credentials. Please try again.";
+      error.style.display = 'block';
+      
+      // Add shake animation
+      box.style.animation = 'shake 0.5s';
+      setTimeout(() => box.style.animation = '', 500);
+      
+      if (loginAttempts >= MAX_ATTEMPTS) {
+        attemptsInfo.textContent = "Too many failed attempts. Locking system...";
+        setTimeout(() => {
+          document.getElementById('loginOverlay').style.display = 'none';
+          triggerScaryTerminal();
+        }, 1000);
+      } else {
+        attemptsInfo.textContent = `Attempts: ${loginAttempts}/${MAX_ATTEMPTS}`;
+      }
+    }
+  }
+  
+  function updatePasswordAttemptsDisplay() {
+    const attemptsDisplay = document.getElementById('passwordAttempts');
+    const remaining = MAX_ATTEMPTS - cleanRecycleBinAttempts;
+    if (remaining < MAX_ATTEMPTS) {
+      attemptsDisplay.textContent = `Attempts remaining: ${remaining}`;
+      attemptsDisplay.style.color = remaining <= 1 ? '#dc3545' : '#666';
+    } else {
+      attemptsDisplay.textContent = '';
+    }
+  }
+  
+  function checkCleanRecycleBinPassword() {
+    const passwordInput = document.getElementById('cleanRecycleBinPassword');
+    const errorMsg = document.getElementById('passwordErrorMsg');
+    const enteredPassword = passwordInput.value.trim();
+    
+    if (enteredPassword === CORRECT_PASSWORD) {
+      // Correct password - clean the recycle bin
+      document.getElementById('cleanRecycleBinModal').style.display = 'none';
+      if (confirm(`Are you sure you want to permanently delete ALL ${recycleBin.length} items in the Recycle Bin?\n\nThis action cannot be undone!`)) {
+        recycleBin = [];
+        saveToLocal();
+        renderRecycleBinList();
+        updateRecycleBinCount();
+        showToast('Recycle Bin has been cleaned!', 3000);
+        cleanRecycleBinAttempts = 0; // Reset attempts on success
+      }
+    } else {
+      // Wrong password
+      cleanRecycleBinAttempts++;
+      errorMsg.style.display = 'block';
+      errorMsg.textContent = 'Incorrect password!';
+      passwordInput.value = '';
+      passwordInput.style.borderColor = '#dc3545';
+      
+      updatePasswordAttemptsDisplay();
+      
+      if (cleanRecycleBinAttempts >= MAX_ATTEMPTS) {
+        // Trigger scary terminal effect!
+        document.getElementById('cleanRecycleBinModal').style.display = 'none';
+        triggerScaryTerminal();
+      } else {
+        // Shake the modal
+        const modal = document.querySelector('#cleanRecycleBinModal .modal-content');
+        modal.style.animation = 'none';
+        setTimeout(() => {
+          modal.style.animation = 'shake 0.5s';
+        }, 10);
+      }
+    }
+  }
+  
+  // Scary terminal effect - Matrix/Hacker style prank
+  function triggerScaryTerminal() {
+    const overlay = document.getElementById('scaryTerminalOverlay');
+    const terminalContent = document.getElementById('terminalContent');
+    
+    // Show the overlay
+    overlay.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    
+    // Scary terminal commands that will scroll by
+    const scaryCommands = [
+      '> Initializing system breach protocol...',
+      '> Bypassing security firewalls...',
+      '> Accessing mainframe core...',
+      '> Downloading classified files...',
+      '> Extracting member database...',
+      '> Compromising attendance records...',
+      '> Installing rootkits...',
+      '> Formatting hard drive...',
+      '> Deleting system32...',
+      '> WARNING: Critical system failure imminent',
+      '> Deploying virus payloads...',
+      '> Encrypting all data with AES-256...',
+      '> Sending data to remote server...',
+      '> root@intruder:~$ sudo rm -rf /',
+      '> Executing malicious script.exe...',
+      '> Injecting malware into kernel...',
+      '> Corrupting boot sector...',
+      '> Activating ransomware protocol...',
+      '> ALL YOUR DATA ARE BELONG TO US',
+      '> Uploading to dark web server...',
+      '> Deleting evidence of intrusion...',
+      '> HACKING COMPLETE - YOU HAVE BEEN WARNED',
+      '> System remains protected.',
+      '> :)'
+    ];
+    
+    const funnyMessages = [
+      'Your IP has been tracked by: [ARCHITECT]',
+    ];
+    
+    let lineIndex = 0;
+    let messageIndex = 0;
+    
+    // Function to add a new line to the terminal
+    function addTerminalLine() {
+      if (lineIndex < scaryCommands.length) {
+        const line = document.createElement('div');
+        line.style.marginBottom = '4px';
+        
+        if (scaryCommands[lineIndex].includes('WARNING') || scaryCommands[lineIndex].includes('ALL YOUR DATA') || scaryCommands[lineIndex].includes('HACKING COMPLETE')) {
+          line.style.color = '#ff0000';
+          line.style.fontWeight = 'bold';
+          line.style.textShadow = '0 0 5px #ff0000';
+        } else if (scaryCommands[lineIndex].includes('root@intruder')) {
+          line.style.color = '#00ffff';
+        } else if (scaryCommands[lineIndex].includes('>')) {
+          line.style.color = '#00ff00';
+        } else {
+          line.style.color = '#ffff00';
+        }
+        
+        line.textContent = scaryCommands[lineIndex];
+        terminalContent.appendChild(line);
+        terminalContent.scrollTop = terminalContent.scrollHeight;
+        lineIndex++;
+        
+        // Speed up the display
+        const delay = Math.random() * 50 + 20;
+        setTimeout(addTerminalLine, delay);
+      } else {
+        // After scary commands, show funny messages
+        setTimeout(() => showFunnyMessage(), 2000);
+      }
+    }
+    
+    function showFunnyMessage() {
+      if (messageIndex < funnyMessages.length) {
+        const line = document.createElement('div');
+        line.style.color = '#00ff00';
+        line.style.fontStyle = 'italic';
+        line.style.marginBottom = '4px';
+        line.textContent = '> ' + funnyMessages[messageIndex];
+        terminalContent.appendChild(line);
+        terminalContent.scrollTop = terminalContent.scrollHeight;
+        messageIndex++;
+        
+        setTimeout(showFunnyMessage, 1500);
+      } else {
+        // Show final message and allow closing
+        setTimeout(() => {
+          const finalLine = document.createElement('div');
+          finalLine.style.color = '#ff00ff';
+          finalLine.style.fontWeight = 'bold';
+          finalLine.style.marginTop = '20px';
+          finalLine.style.fontSize = '1.2rem';
+          finalLine.textContent = '[ SYSTEM FAIL ]';
+          terminalContent.appendChild(finalLine);
+          terminalContent.scrollTop = terminalContent.scrollHeight;
+          
+          // Make overlay clickable to close
+          overlay.style.cursor = 'pointer';
+          overlay.onclick = closeScaryTerminal;
+        }, 2000);
+      }
+    }
+    
+    // Start the terminal animation
+    addTerminalLine();
+    
+    // Add matrix-like background effect
+    addMatrixBackground();
+  }
+  
+  function addMatrixBackground() {
+    const overlay = document.getElementById('scaryTerminalOverlay');
+    
+    // Create matrix rain columns
+    for (let i = 0; i < 20; i++) {
+      const column = document.createElement('div');
+      column.className = 'scary-matrix-line';
+      column.style.left = Math.random() * 100 + '%';
+      column.style.animationDelay = Math.random() * 2 + 's';
+      column.style.animationDuration = (Math.random() * 2 + 1) + 's';
+      
+      // Random matrix characters
+      const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+      let text = '';
+      for (let j = 0; j < 30; j++) {
+        text += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      column.textContent = text;
+      overlay.appendChild(column);
+    }
+  }
+  
+  function closeScaryTerminal() {
+    const overlay = document.getElementById('scaryTerminalOverlay');
+    overlay.style.display = 'none';
+    overlay.onclick = null;
+    document.body.style.overflow = '';
+    
+    // Remove matrix columns
+    const matrixLines = overlay.querySelectorAll('.scary-matrix-line');
+    matrixLines.forEach(line => line.remove());
+    
+    // Clear terminal content
+    document.getElementById('terminalContent').innerHTML = '';
+    
+    // Reset attempts
+    cleanRecycleBinAttempts = 0;
+    clearActivityLogAttempts = 0;
+    loginAttempts = 0;
+    
+    // Ensure login overlay is shown if not logged in
+    document.getElementById('loginOverlay').style.display = 'flex';
+    document.getElementById('loginUsername').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginError').style.display = 'none';
+    document.getElementById('loginAttemptsInfo').textContent = '';
+    
+    // Show a friendly message
+    showToast('DO NOT TRY THAT AGAIN.', 4000);
+  }
+  
+  // Add shake animation to CSS dynamically
+  const shakeStyle = document.createElement('style');
+  shakeStyle.textContent = `
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+  `;
+  document.head.appendChild(shakeStyle);
+  // ========== END CLEAN RECYCLE BIN PASSWORD SYSTEM ==========
+
+  function escapeHtml(str) { 
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); 
+  }
+
+  // Event binding
+  function bindEvents() {
+    // Attendance FABs
+    document.getElementById('fabPresent').addEventListener('click', handlePresentToday);
+    document.getElementById('fabAbsent').addEventListener('click', handleAbsentToday);
+    document.getElementById('fabLeave').addEventListener('click', handleLeaveToday);
+    // Prev day buttons
+    document.getElementById('markPrevPresentBtn').addEventListener('click', markPrevPresent);
+    document.getElementById('markPrevAbsentBtn').addEventListener('click', markPrevAbsentWithPrompt);
+    document.getElementById('markPrevLeaveBtn').addEventListener('click', markPrevLeave);
+    document.getElementById('confirmAbsentBtn').addEventListener('click', executePrevAbsentWithLetter);
+    
+    // Clean activity log modal buttons
+    document.getElementById('submitClearActivityLogBtn').onclick = checkClearActivityLogPassword;
+    document.getElementById('cancelClearActivityLogBtn').onclick = () => {
+      document.getElementById('clearActivityLogAuthModal').style.display = 'none';
+      clearActivityLogAttempts = 0;
+    };
+    document.getElementById('clearActivityLogPassword').onkeypress = (e) => {
+      if (e.key === 'Enter') checkClearActivityLogPassword();
+    };
+
+    // Refresh Data button
+    document.getElementById('refreshDataBtn').addEventListener('click', refreshDataFromDatabase);
+    
+    // Logo menu events
+    // Master Access Auth
+    document.getElementById('masterAccessToggleBtn').addEventListener('click', openMasterAccessModal);
+    document.getElementById('cancelMasterAccessBtn').addEventListener('click', () => {
+      document.getElementById('masterAccessAuthModal').style.display = 'none';
+    });
+    document.getElementById('submitMasterAccessBtn').addEventListener('click', checkMasterKey);
+    document.getElementById('masterAccessPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') checkMasterKey();
+    });
+
+    document.getElementById('logoBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('logoMenuModal').style.display = 'flex';
+    });
+    document.getElementById('closeLogoMenuBtn').addEventListener('click', () => {
+      document.getElementById('logoMenuModal').style.display = 'none';
+    });
+    // Backup & Restore button opens sub-menu
+    document.getElementById('backupRestoreBtn').addEventListener('click', () => {
+      document.getElementById('logoMenuModal').style.display = 'none';
+      document.getElementById('backupRestoreModal').style.display = 'flex';
+    });
+    // Backup & Restore sub-menu events
+    document.getElementById('backupProjectBtn').addEventListener('click', backupProject);
+    document.getElementById('restoreProjectBtn').addEventListener('click', () => {
+      document.getElementById('restoreProjectInput').click();
+    });
+    document.getElementById('restoreProjectInput').addEventListener('change', restoreProject);
+    document.getElementById('backToMenuBtn').addEventListener('click', () => {
+      document.getElementById('backupRestoreModal').style.display = 'none';
+      document.getElementById('logoMenuModal').style.display = 'flex';
+    });
+    
+    // Recycle Bin events
+    document.getElementById('recycleBinBtn').addEventListener('click', () => {
+      document.getElementById('logoMenuModal').style.display = 'none';
+      openRecycleBinModal();
+    });
+    document.getElementById('closeRecycleBinBtn').addEventListener('click', () => {
+      document.getElementById('recycleBinModal').style.display = 'none';
+    });
+    
+    // Clean Recycle Bin button - opens password modal
+    document.getElementById('cleanRecycleBinBtn').addEventListener('click', () => {
+      document.getElementById('recycleBinModal').style.display = 'none';
+      document.getElementById('cleanRecycleBinPassword').value = '';
+      document.getElementById('passwordErrorMsg').style.display = 'none';
+      updatePasswordAttemptsDisplay();
+      document.getElementById('cleanRecycleBinModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('cleanRecycleBinPassword').focus(), 100);
+    });
+    
+    // Cancel password modal
+    document.getElementById('cancelCleanRecycleBinBtn').addEventListener('click', () => {
+      document.getElementById('cleanRecycleBinModal').style.display = 'none';
+    });
+    
+    // Submit password
+    document.getElementById('submitCleanRecycleBinBtn').addEventListener('click', checkCleanRecycleBinPassword);
+    
+    // Allow Enter key to submit password
+    document.getElementById('cleanRecycleBinPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') checkCleanRecycleBinPassword();
+    });
+    
+    // Login form Enter key
+    document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') checkLogin();
+    });
+    document.getElementById('loginUsername').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') checkLogin();
+    });
+    document.getElementById('recycleBinSearch').addEventListener('input', () => {
+      renderRecycleBinList();
+    });
+    document.getElementById('recycleBinSort').addEventListener('change', () => {
+      renderRecycleBinList();
+    });
+    
+    // Refresh button event
+    document.getElementById('refreshDataBtn').addEventListener('click', () => {
+      refreshDataFromDatabase();
+    });
+    
+    // Activity Log
+    document.getElementById('activityLogBtn').addEventListener('click', openActivityLogModal);
+    
+    // Close modals on outside click
+    window.addEventListener('click', (e) => { 
+      if(e.target === document.getElementById('logoMenuModal')) document.getElementById('logoMenuModal').style.display = 'none'; 
+      if(e.target === document.getElementById('backupRestoreModal')) document.getElementById('backupRestoreModal').style.display = 'none';
+      if(e.target === document.getElementById('recycleBinModal')) document.getElementById('recycleBinModal').style.display = 'none';
+    });
+    
+    document.getElementById('addMemberBtn').addEventListener('click', () => {
+      const code = document.getElementById('newMemberCode').value.trim();
+      const sinhalaName = document.getElementById('newMemberName').value.trim();
+      const englishName = document.getElementById('newMemberEnglishName').value.trim();
+      const address = document.getElementById('newMemberAddress').value.trim();
+      const contact = document.getElementById('newMemberContact').value.trim();
+      const nationalId = document.getElementById('newMemberNationalId').value.trim();
+      if(addMember(code, sinhalaName, englishName, address, contact, nationalId)) { 
+        document.getElementById('newMemberCode').value = ''; 
+        document.getElementById('newMemberName').value = '';
+        document.getElementById('newMemberEnglishName').value = '';
+        document.getElementById('newMemberAddress').value = '';
+        document.getElementById('newMemberContact').value = '';
+        document.getElementById('newMemberNationalId').value = '';
+      }
+    });
+    document.getElementById('memberSearchInput').addEventListener('input', (e) => { memberSearchKeyword = e.target.value; renderMemberList(); });
+    document.getElementById('monthFilterInput').addEventListener('change', applyMonthFilter);
+    document.getElementById('clearMonthFilter').addEventListener('click', resetMonthFilter);
+    document.getElementById('saveEditBtn').addEventListener('click', saveEdit);
+    document.getElementById('closeEditBtn').addEventListener('click', closeModal);
+    document.getElementById('editStatusPresent').addEventListener('click', () => setEditStatus('present'));
+    document.getElementById('editStatusAbsent').addEventListener('click', () => setEditStatus('absent'));
+    document.getElementById('editStatusLeave').addEventListener('click', () => setEditStatus('leave'));
+    window.addEventListener('click', (e) => { if(e.target === document.getElementById('editModal')) closeModal(); });
+    
+    // Member edit/delete buttons
+    document.getElementById('editMemberBtn').addEventListener('click', openEditMemberModal);
+    document.getElementById('deleteMemberBtn').addEventListener('click', () => {
+      if (selectedMemberId) deleteMember(selectedMemberId);
+    });
+    document.getElementById('saveMemberEditBtn').addEventListener('click', saveMemberEdit);
+    document.getElementById('closeMemberEditBtn').addEventListener('click', closeMemberEditModal);
+    window.addEventListener('click', (e) => { if(e.target === document.getElementById('editMemberModal')) closeMemberEditModal(); });
+    
+    // set default prev date to yesterday
+    const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    document.getElementById('prevDatePicker').value = yesterday;
+    setupPrevAbsentUI();
+  }
+
+  // ========== REFRESH DATA FUNCTION ==========
+  function refreshDataFromDatabase() {
+    if (!confirm('FACTORY RESET: Reload original database?\n\nThis will PERMANENTLY DELETE all local edits, attendance records, recycle bin items, and activity logs.\nEverything will be restored from the master database.js.\n\nThe page will reload to complete the reset. Are you sure?')) {
+      return;
+    }
+    
+    // Clear ALL localStorage keys permanently
+    localStorage.removeItem(STORAGE_MEMBERS);
+    localStorage.removeItem(STORAGE_RECORDS);
+    localStorage.removeItem(STORAGE_RECYCLE_BIN);
+    localStorage.removeItem(STORAGE_ACTIVITY_LOG);
+    
+    // Force a total page reload to ensure a clean boot from database.js
+    location.reload();
+  }
+  // ========== END REFRESH FUNCTION ==========
+
+  function init() {
+    loadInitialData();
+    console.log(`Init: ${members.length} members loaded`);
+    
+    // Show debug info in console for troubleshooting
+    if (members.length > 0) {
+      console.log('Sample member:', JSON.stringify(members[0]));
+      console.log('Total members:', members.length);
+    } else {
+      console.warn('No members loaded - check if database.js is loaded correctly');
+    }
+    
+    if(members.length > 0) selectedMemberId = members[0].id;
+    bindEvents();
+    renderMemberList();
+    renderSelectedMemberArea();
+    renderAttendanceRecords();
+    updateFabStates();
+    
+    // Debug: Log search functionality
+    const searchInput = document.getElementById('memberSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        console.log(`Search input: "${e.target.value}", keyword: "${memberSearchKeyword}"`);
+      });
+    }
+  }
+  init();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+ const btn=document.getElementById('mobileMenuBtn');
+ const panel=document.querySelector('.members-panel');
+ if(btn && panel){
+   btn.addEventListener('click',()=>panel.classList.toggle('mobile-open'));
+   document.addEventListener('click',(e)=>{
+      if(window.innerWidth<=768 && panel.classList.contains('mobile-open')
+      && !panel.contains(e.target) && e.target!==btn){
+        panel.classList.remove('mobile-open');
+      }
+   });
+ }
+});
+</script>
+
+</body></html>
